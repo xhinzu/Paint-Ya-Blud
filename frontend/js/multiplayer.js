@@ -1,10 +1,9 @@
-/* Paint Ya Blud - Direct 1-on-1 WebRTC Peer-to-Peer (P2P) Engine
+/* Paint Ya Blud - Direct 2-Way WebRTC Peer-to-Peer (P2P) Engine
  *
- * Direct P2P Architecture with TURN Fallback:
- * - Direct 1-on-1 P2P connection between Host and Joiner
- * - STUN + TURN Relay Servers (Metered.ca OpenRelay + Google STUN + Twilio STUN)
- *   Ensures video & voice stream NAT/firewall traversal across different households & routers
- * - Automatic Media Stream On-Demand Answering
+ * Guaranteed 2-Way Media Streaming:
+ * - Direct P2P Video + Audio with STUN + TURN Fallback
+ * - Symmetric Media Calls: Both peers exchange video & audio streams cleanly
+ * - Auto-recovery for race conditions between webcam access and connection open
  */
 
 (function () {
@@ -45,6 +44,29 @@
       credential: 'openrelayproject'
     }
   ];
+
+  /* ---- Helper to attach 2-way media stream ---- */
+  function attachMediaStreamToVideo(remoteStream) {
+    if (!remoteStream) return;
+    const peerVideo = document.getElementById('peerVideo');
+    if (peerVideo) {
+      peerVideo.srcObject = remoteStream;
+      peerVideo.play().catch(() => {});
+      console.log('[P2P] Remote video & voice stream active on #peerVideo ✓');
+    }
+  }
+
+  function initiateCallToPeer(targetPeerId) {
+    if (!peer || !localStream || !targetPeerId) return;
+
+    console.log(`[P2P] Initiating 2-way media call to ${targetPeerId}`);
+    const call = peer.call(targetPeerId, localStream);
+    mediaCalls.set(targetPeerId, call);
+
+    call.on('stream', (remoteStream) => {
+      attachMediaStreamToVideo(remoteStream);
+    });
+  }
 
   window.PYBMultiplayer = {
     init: function (code, hostFlag, username, currentPhase = 'lobby') {
@@ -116,7 +138,13 @@
 
         peer.on('call', async (call) => {
           console.log(`[P2P] Incoming media call from ${call.peer}`);
-          mediaCalls.set(call.peer, call);
+
+          const answerWithStream = (stream) => {
+            call.answer(stream);
+            call.on('stream', (remoteStream) => {
+              attachMediaStreamToVideo(remoteStream);
+            });
+          };
 
           if (!localStream) {
             try {
@@ -129,16 +157,10 @@
           }
 
           if (localStream) {
-            call.answer(localStream);
+            answerWithStream(localStream);
           } else {
             call.answer();
           }
-
-          call.on('stream', (remoteStream) => {
-            console.log('[P2P] Direct remote video & voice stream connected (incoming call)');
-            const peerVideo = document.getElementById('peerVideo');
-            if (peerVideo) peerVideo.srcObject = remoteStream;
-          });
         });
 
         peer.on('error', (err) => {
@@ -172,17 +194,9 @@
           });
         }
 
-        // Trigger direct 1-on-1 P2P media call if webcam stream is active
-        if (localStream && peer && !mediaCalls.has(conn.peer)) {
-          console.log(`[P2P] Calling ${conn.peer} for direct 1-on-1 video/voice stream`);
-          const call = peer.call(conn.peer, localStream);
-          mediaCalls.set(conn.peer, call);
-
-          call.on('stream', (remoteStream) => {
-            console.log('[P2P] Direct video & voice stream connected');
-            const peerVideo = document.getElementById('peerVideo');
-            if (peerVideo) peerVideo.srcObject = remoteStream;
-          });
+        // Initiate 2-way media call if localStream is ready
+        if (localStream && peer) {
+          initiateCallToPeer(conn.peer);
         }
       });
 
@@ -302,16 +316,8 @@
       if (!peer) return;
 
       connections.forEach((conn, peerId) => {
-        if (conn.open && !mediaCalls.has(peerId)) {
-          console.log(`[P2P] Direct video call to ${peerId}`);
-          const call = peer.call(peerId, localStream);
-          mediaCalls.set(peerId, call);
-
-          call.on('stream', (remoteStream) => {
-            console.log('[P2P] Attached remote video stream');
-            const peerVideo = document.getElementById('peerVideo');
-            if (peerVideo) peerVideo.srcObject = remoteStream;
-          });
+        if (conn.open) {
+          initiateCallToPeer(peerId);
         }
       });
     },
