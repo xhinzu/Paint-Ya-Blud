@@ -134,15 +134,16 @@
       // 2. Start webcams & live voice chat
       await initWebcams();
 
-      // 3. Init AR face tracking on peer video frame
-      await window.initFaceAR('arCanvasPeer', 'peerVideo');
+      // 3. Init AR face tracking on peer video frame and local video frame
+      await window.initFaceAR('arCanvasPeer', 'peerVideo', 'arCanvasLocal');
 
-      // 4. Restore saved AR face paint strokes so drawing stays pinned to their face!
+      // 4. Restore separated AR face paint strokes
       try {
-        const savedStrokes = JSON.parse(sessionStorage.getItem('pyb_saved_ar_strokes') || '[]');
-        if (savedStrokes.length > 0 && window.setARStrokes) {
-          window.setARStrokes(savedStrokes);
-        }
+        const localS  = JSON.parse(sessionStorage.getItem('pyb_local_ar_strokes') || '[]');
+        const remoteS = JSON.parse(sessionStorage.getItem('pyb_remote_ar_strokes') || '[]');
+
+        if (window.setLocalARStrokes)  window.setLocalARStrokes(localS);
+        if (window.setRemoteARStrokes) window.setRemoteARStrokes(remoteS);
       } catch (_) {}
     });
   </script>

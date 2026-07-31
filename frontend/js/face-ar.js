@@ -1,34 +1,29 @@
-/* Paint Ya Blud - AR Face Painting Engine
+/* Paint Ya Blud - Dual-Canvas AR Face Painting Engine
  *
- * How it works:
- * 1. MediaPipe FaceMesh runs on the peer video in real-time
- * 2. When you draw at pixel (x,y), we find the NEAREST of 468 face landmarks
- * 3. We store the stroke as an OFFSET from that landmark (in normalized 0-1 space)
- * 4. Every animation frame we CLEAR the canvas and REDRAW all strokes by projecting
- *    the stored face-relative offsets back to screen coords using CURRENT landmark positions
- * 5. Result: paint moves, rotates, scales with the face in 3D
- *
- * Fallback: If no face is detected, strokes are stored as absolute coords
- *           and rendered at fixed positions (standard canvas mode).
+ * Clean stroke separation:
+ * 1. `localStrokes`: The strokes YOU paint on your friend's face (#drawingCanvas on top of #peerVideo)
+ * 2. `remoteStrokes`: The strokes YOUR FRIEND paints on your face (received over network and rendered on #localDrawingCanvas on top of #localVideo)
  */
 
 (function () {
   /* ---- State ---- */
   let canvas, ctx;
+  let localPipCanvas = null, localPipCtx = null;
   let peerVideoElem = null;
-  let faceLandmarks = null; // Current frame: array of 468 {x,y,z} in normalized [0-1] space
+  let faceLandmarks = null; // 468 landmarks in normalized [0-1] space
 
-  let arStrokes    = [];   // All committed strokes
-  let currentStroke = null; // Stroke being drawn right now
-  let isDrawing    = false;
-  let lastPos      = null;
+  let localStrokes  = []; // Strokes YOU drew on your friend
+  let remoteStrokes = []; // Strokes YOUR FRIEND drew on you
+  let currentStroke = null; // Active stroke being drawn right now
+  let isDrawing     = false;
+  let lastPos       = null;
 
   // Tool state
   let currentColor = '#e74c3c';
   let currentTool  = 'crayon';
   let brushSize    = 16;
 
-  /* ---- Seeded deterministic PRNG (so crayon texture is stable across frames) ---- */
+  /* ---- Seeded deterministic PRNG for stable crayon texture ---- */
   function seededRand(seed) {
     const x = Math.sin(seed + 1) * 43758.5453123;
     return x - Math.floor(x);
@@ -50,16 +45,14 @@
 
   /* ---- Coordinate conversion ---- */
 
-  // Canvas pixel → face-relative coordinate
   function toFaceRelative(cx, cy) {
     const nx = cx / canvas.width;
     const ny = cy / canvas.height;
 
     if (!faceLandmarks || faceLandmarks.length === 0) {
-      return { lmIdx: -1, dx: nx, dy: ny }; // No face: store as absolute
+      return { lmIdx: -1, dx: nx, dy: ny };
     }
 
-    // Find nearest of the 468 landmarks
     let minD = Infinity, nearIdx = 0;
     for (let i = 0; i < faceLandmarks.length; i++) {
       const lm = faceLandmarks[i];
@@ -71,17 +64,16 @@
     return { lmIdx: nearIdx, dx: nx - lm.x, dy: ny - lm.y };
   }
 
-  // Face-relative coordinate → canvas pixel
-  function fromFaceRelative(pt) {
+  function fromFaceRelative(pt, targetCanvas) {
+    const c = targetCanvas || canvas;
     if (pt.lmIdx === -1) {
-      // Absolute (stored without face detection)
-      return { x: pt.dx * canvas.width, y: pt.dy * canvas.height };
+      return { x: pt.dx * c.width, y: pt.dy * c.height };
     }
-    if (!faceLandmarks) return null; // No face visible right now — skip, draw when face returns
+    if (!faceLandmarks) return null;
     const lm = faceLandmarks[pt.lmIdx];
     return {
-      x: (lm.x + pt.dx) * canvas.width,
-      y: (lm.y + pt.dy) * canvas.height
+      x: (lm.x + pt.dx) * c.width,
+      y: (lm.y + pt.dy) * c.height
     };
   }
 
@@ -117,9 +109,9 @@
     if (!isDrawing || !currentStroke) return;
     isDrawing = false;
     if (currentStroke.pts.length > 0) {
-      arStrokes.push(currentStroke);
+      localStrokes.push(currentStroke);
 
-      // Broadcast to peer (send as absolute coords for compatibility)
+      // Send to peer
       if (window.PYBMultiplayer) {
         const absoluteStroke = {
           color: currentStroke.color,
@@ -150,42 +142,52 @@
     currentStroke.pts.push({ ...rel, dots });
   }
 
-  /* ---- Render loop (clears + redraws every frame using current landmarks) ---- */
+  /* ---- Render loop ---- */
 
   function renderLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const s of arStrokes)  renderStroke(s);
-    if (currentStroke)           renderStroke(currentStroke);
+    // 1. Render LOCAL strokes (your drawings on friend's face)
+    if (ctx && canvas) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const s of localStrokes) renderStroke(ctx, canvas, s);
+      if (currentStroke)            renderStroke(ctx, canvas, currentStroke);
+    }
+
+    // 2. Render REMOTE strokes (friend's drawings on your face inside PIP)
+    if (localPipCtx && localPipCanvas) {
+      localPipCtx.clearRect(0, 0, localPipCanvas.width, localPipCanvas.height);
+      for (const s of remoteStrokes) renderStroke(localPipCtx, localPipCanvas, s);
+    }
+
     requestAnimationFrame(renderLoop);
   }
 
-  function renderStroke(stroke) {
+  function renderStroke(targetCtx, targetCanvas, stroke) {
     for (const pt of stroke.pts) {
-      const screen = fromFaceRelative(pt);
+      const screen = fromFaceRelative(pt, targetCanvas);
       if (!screen) continue;
-      drawDot(screen.x, screen.y, stroke.color, stroke.tool, stroke.size, pt.dots);
+      drawDot(targetCtx, screen.x, screen.y, stroke.color, stroke.tool, stroke.size, pt.dots);
     }
   }
 
-  function drawDot(x, y, color, tool, size, dots) {
+  function drawDot(targetCtx, x, y, color, tool, size, dots) {
     if (tool === 'rubber') {
-      ctx.clearRect(x - size / 2, y - size / 2, size, size);
+      targetCtx.clearRect(x - size / 2, y - size / 2, size, size);
       return;
     }
     if (tool === 'crayon' && dots) {
-      ctx.fillStyle = color;
+      targetCtx.fillStyle = color;
       for (const d of dots) {
-        ctx.globalAlpha = d.a;
-        ctx.beginPath();
-        ctx.arc(x + d.ox, y + d.oy, d.r, 0, Math.PI * 2);
-        ctx.fill();
+        targetCtx.globalAlpha = d.a;
+        targetCtx.beginPath();
+        targetCtx.arc(x + d.ox, y + d.oy, d.r, 0, Math.PI * 2);
+        targetCtx.fill();
       }
-      ctx.globalAlpha = 1;
+      targetCtx.globalAlpha = 1;
     } else {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      ctx.fill();
+      targetCtx.fillStyle = color;
+      targetCtx.beginPath();
+      targetCtx.arc(x, y, size / 2, 0, Math.PI * 2);
+      targetCtx.fill();
     }
   }
 
@@ -193,7 +195,7 @@
 
   async function initFaceMesh() {
     if (typeof FaceMesh === 'undefined') {
-      console.warn('[FaceAR] MediaPipe not loaded — static canvas mode active.');
+      console.warn('[FaceAR] MediaPipe not loaded.');
       return;
     }
 
@@ -216,7 +218,6 @@
             ? results.multiFaceLandmarks[0]
             : null;
 
-        // Update face indicator
         const indicator = document.getElementById('faceIndicator');
         if (indicator) {
           indicator.textContent = faceLandmarks ? '😀 Face locked' : '👤 No face';
@@ -227,7 +228,6 @@
       await fm.initialize();
       console.log('[FaceAR] FaceMesh ready ✓');
 
-      // Continuously send video frames to face mesh
       (async function frameLoop() {
         if (
           peerVideoElem &&
@@ -235,29 +235,41 @@
           !peerVideoElem.paused &&
           peerVideoElem.videoWidth > 0
         ) {
-          try { await fm.send({ image: peerVideoElem }); } catch (_) { /* ignore single frame errors */ }
+          try { await fm.send({ image: peerVideoElem }); } catch (_) {}
         }
         requestAnimationFrame(frameLoop);
       })();
 
     } catch (err) {
-      console.error('[FaceAR] FaceMesh failed to initialize:', err);
+      console.error('[FaceAR] FaceMesh error:', err);
     }
   }
 
   /* ---- Public API ---- */
 
-  window.initFaceAR = async function (canvasId, videoId) {
+  window.initFaceAR = async function (canvasId, videoId, pipCanvasId) {
     canvas        = document.getElementById(canvasId);
     peerVideoElem = document.getElementById(videoId);
     if (!canvas) return;
 
     ctx = canvas.getContext('2d');
 
+    if (pipCanvasId) {
+      localPipCanvas = document.getElementById(pipCanvasId);
+      if (localPipCanvas) localPipCtx = localPipCanvas.getContext('2d');
+    }
+
     function resizeCanvas() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width  = rect.width;
-      canvas.height = rect.height;
+      if (canvas && canvas.parentElement) {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width  = rect.width;
+        canvas.height = rect.height;
+      }
+      if (localPipCanvas && localPipCanvas.parentElement) {
+        const pRect = localPipCanvas.parentElement.getBoundingClientRect();
+        localPipCanvas.width  = pRect.width;
+        localPipCanvas.height = pRect.height;
+      }
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -271,10 +283,7 @@
     canvas.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e.touches[0]); }, { passive: false });
     canvas.addEventListener('touchend',   onUp);
 
-    // Boot face tracking
     await initFaceMesh();
-
-    // Start render loop
     renderLoop();
   };
 
@@ -296,26 +305,29 @@
     document.getElementById(ids[tool])?.classList.add('active');
   };
 
-  // Receive remote AR stroke from peer
+  // Receive remote AR stroke from peer -> push to remoteStrokes
   window.renderRemoteStrokePoint = function (data) {
     if (data && data.arStroke) {
-      arStrokes.push(data.arStroke);
-    }
-    // Legacy support for old plain stroke format
-    else if (data && data.nx !== undefined) {
+      remoteStrokes.push(data.arStroke);
+    } else if (data && data.nx !== undefined) {
       const s = {
         color: data.color || '#e74c3c',
         tool:  data.tool  || 'crayon',
         size:  data.size  || 16,
         pts:   [{ lmIdx: -1, dx: data.nx, dy: data.ny, dots: null }]
       };
-      arStrokes.push(s);
+      remoteStrokes.push(s);
     }
   };
 
-  window.clearCanvasRemote = function () { arStrokes = []; };
+  window.clearCanvasRemote = function () {
+    localStrokes  = [];
+    remoteStrokes = [];
+  };
 
-  window.getARStrokes = function () { return arStrokes; };
-  window.setARStrokes = function (strokes) { if (Array.isArray(strokes)) arStrokes = strokes; };
+  window.getLocalARStrokes  = function () { return localStrokes; };
+  window.getRemoteARStrokes = function () { return remoteStrokes; };
+  window.setLocalARStrokes  = function (s) { if (Array.isArray(s)) localStrokes = s; };
+  window.setRemoteARStrokes = function (s) { if (Array.isArray(s)) remoteStrokes = s; };
 
 })();

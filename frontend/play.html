@@ -142,9 +142,10 @@
 
       <!-- Right sidebar: PIP + toolbar -->
       <div class="play-sidebar">
-        <!-- Your own webcam PIP -->
-        <div class="pip-cam-box">
+        <!-- Your own webcam PIP (with overlay for friend's drawings on your face) -->
+        <div class="pip-cam-box" style="position: relative;">
           <video id="localVideo" autoplay playsinline muted></video>
+          <canvas id="localDrawingCanvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
         </div>
 
         <!-- Tool blob -->
@@ -308,7 +309,7 @@
       await initWebcams();
 
       // Init AR face painting (loads MediaPipe, starts render loop)
-      await window.initFaceAR('drawingCanvas', 'peerVideo');
+      await window.initFaceAR('drawingCanvas', 'peerVideo', 'localDrawingCanvas');
 
       // Hide loading overlay once AR is ready
       const overlay = document.getElementById('arLoadingOverlay');
@@ -320,10 +321,12 @@
       // Countdown timer
       const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
       startCountdownTimer(durationMins * 60, 'timerDisplay', () => {
-        // Save live AR strokes so reveal.html can keep rendering them on live face
-        if (window.getARStrokes) {
-          const strokes = window.getARStrokes();
-          sessionStorage.setItem('pyb_saved_ar_strokes', JSON.stringify(strokes));
+        // Save separated local and remote AR strokes for reveal screen
+        if (window.getLocalARStrokes) {
+          const localS  = window.getLocalARStrokes();
+          const remoteS = window.getRemoteARStrokes();
+          sessionStorage.setItem('pyb_local_ar_strokes',  JSON.stringify(localS));
+          sessionStorage.setItem('pyb_remote_ar_strokes', JSON.stringify(remoteS));
         }
 
         // Capture final drawing snapshot as fallback
