@@ -6,29 +6,87 @@
   <title>Paint Ya Blud - Join Room</title>
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .join-blob-wrap {
+      background: rgba(230, 180, 220, 0.92);
+      border: 6px solid #fff;
+      border-radius: 38% 62% 55% 45% / 50% 48% 52% 50%;
+      padding: 3rem 3.5rem;
+      box-shadow: 0 0 0 5px #111, 6px 8px 0 #111;
+      filter: url(#chalky);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      min-width: 340px;
+    }
+    .join-title {
+      font-family: var(--font-title);
+      font-size: 3rem;
+      color: var(--color-red);
+      text-align: center;
+      line-height: 1.1;
+      text-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    }
+    .code-inputs-row {
+      display: flex;
+      gap: 18px;
+    }
+    .code-digit-box {
+      width: 62px;
+      height: 70px;
+      font-family: var(--font-title);
+      font-size: 3rem;
+      text-align: center;
+      border: none;
+      border-bottom: 5px solid #fff;
+      background: transparent;
+      color: #fff;
+      outline: none;
+      text-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+    }
+    .join-btn {
+      font-family: var(--font-title);
+      font-size: 2.8rem;
+      color: #6c3483;
+      background: rgba(200, 150, 210, 0.6);
+      border: 4px solid #111;
+      border-radius: 40% 60% 55% 45% / 55% 45% 55% 45%;
+      padding: 0.3rem 2.5rem;
+      cursor: pointer;
+      box-shadow: 3px 4px 0 #111;
+      filter: url(#chalky);
+    }
+  </style>
 </head>
 <body>
-  <div class="app-viewport bg-night-forest">
-    <!-- Back Button Top-Left -->
-    <a href="index.html" class="back-btn">Back</a>
+  <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="chalky" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
 
-    <div class="blob-container" style="background: #ffeaa7; width: 420px; min-height: 400px; padding: 2.5rem 2rem;">
-      <h2 style="font-family: var(--font-title); font-size: 3rem; color: var(--color-red); text-shadow: 2px 2px 0px #111; filter: url(#sketchy-filter); margin-bottom: 1rem;">
-        Enter the code
-      </h2>
+  <div class="app-viewport bg-join">
+    <a href="index.html" class="back-btn">↩</a>
 
-      <!-- 4 Digit Input Boxes -->
+    <div class="join-blob-wrap">
+      <div class="join-title">Enter the<br>code</div>
+
       <div class="code-inputs-row">
-        <input type="text" maxlength="1" class="code-digit-box" id="d1" autofocus onkeyup="moveFocus(this, 'd2')">
-        <input type="text" maxlength="1" class="code-digit-box" id="d2" onkeyup="moveFocus(this, 'd3')">
-        <input type="text" maxlength="1" class="code-digit-box" id="d3" onkeyup="moveFocus(this, 'd4')">
-        <input type="text" maxlength="1" class="code-digit-box" id="d4" onkeyup="moveFocus(this, null)">
+        <input type="text" maxlength="1" class="code-digit-box" id="d1" autofocus
+          onkeyup="moveFocus(this,'d2')" oninput="this.value=this.value.replace(/\D/,'')">
+        <input type="text" maxlength="1" class="code-digit-box" id="d2"
+          onkeyup="moveFocus(this,'d3')" oninput="this.value=this.value.replace(/\D/,'')">
+        <input type="text" maxlength="1" class="code-digit-box" id="d3"
+          onkeyup="moveFocus(this,'d4')" oninput="this.value=this.value.replace(/\D/,'')">
+        <input type="text" maxlength="1" class="code-digit-box" id="d4"
+          onkeyup="moveFocus(this,null)" oninput="this.value=this.value.replace(/\D/,'')">
       </div>
 
-      <!-- Join Action Button -->
-      <button onclick="handleJoinRoom()" class="blob-btn btn-purple" style="font-size: 2.5rem; padding: 0.6rem 3rem; margin-top: 1.5rem;">
-        Join
-      </button>
+      <button onclick="handleJoinRoom()" class="join-btn">Join.</button>
     </div>
   </div>
 
@@ -41,18 +99,8 @@
     }
 
     function handleJoinRoom() {
-      const code = [
-        document.getElementById('d1').value,
-        document.getElementById('d2').value,
-        document.getElementById('d3').value,
-        document.getElementById('d4').value
-      ].join('');
-
-      if (code.length < 4) {
-        alert('Please enter a valid 4-digit code!');
-        return;
-      }
-
+      const code = ['d1','d2','d3','d4'].map(id => document.getElementById(id).value).join('');
+      if (code.length < 4) { alert('Please enter a valid 4-digit code!'); return; }
       sessionStorage.setItem('roomCode', code);
       sessionStorage.setItem('isHost', 'false');
       window.location.href = `room.html?code=${code}`;

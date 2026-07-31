@@ -8,100 +8,98 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="app-viewport bg-tree-leaves">
-    <!-- Back Button Top-Left -->
-    <a href="index.html" class="back-btn">Back</a>
+  <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="chalky" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
 
-    <div class="reveal-viewport">
-      <!-- Blue Crayon Heart "TIME OUT" Panel (Left) -->
-      <div class="timeout-heart-panel">
-        <div>TIME</div>
-        <div>OUT</div>
+  <div class="app-viewport bg-reveal">
+    <!-- Back button -->
+    <a href="index.html" class="back-btn">↩</a>
+
+    <div class="reveal-layout">
+      <!-- TIME OUT heart -->
+      <div class="timeout-heart">
+        <span>TIME</span>
+        <span>OUT</span>
       </div>
 
-      <!-- Two Stacked Photo Frame Results (Right) -->
-      <div class="results-frames-column">
-        <!-- Player 1 / Peer Canvas Photo Frame -->
-        <div class="result-photo-frame">
-          <canvas id="resultCanvas1" width="320" height="240"></canvas>
+      <!-- Two stacked result frames -->
+      <div class="results-frame-wrap">
+        <div class="result-canvas-frame">
+          <canvas id="resultCanvas1" width="300" height="220"></canvas>
         </div>
-
-        <!-- Player 2 / Local Canvas Photo Frame -->
-        <div class="result-photo-frame">
-          <canvas id="resultCanvas2" width="320" height="240"></canvas>
+        <div class="result-canvas-frame">
+          <canvas id="resultCanvas2" width="300" height="220"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- START Rematch Button (Bottom-Left) -->
-    <a href="play.html" class="blob-btn btn-green" style="position: absolute; bottom: 35px; left: 35px; font-size: 2.2rem; padding: 0.5rem 2.5rem; z-index: 100;">
-      START
-    </a>
+    <!-- START Rematch -->
+    <div class="reveal-start-btn">
+      <a href="play.html" class="blob-btn btn-green" style="font-size:2rem; padding:0.4rem 2rem;">
+        START
+      </a>
+    </div>
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
   <script src="js/multiplayer.js"></script>
   <script>
-    function renderCanvasData(canvasId, dataUrl, defaultDraw) {
+    function drawCanvas(canvasId, dataUrl, fallback) {
       const c = document.getElementById(canvasId);
       if (!c) return;
       const ctx = c.getContext('2d');
-
       if (dataUrl) {
         const img = new Image();
-        img.onload = () => {
-          ctx.clearRect(0, 0, 320, 240);
-          ctx.drawImage(img, 0, 0, 320, 240);
-        };
+        img.onload = () => { ctx.clearRect(0,0,300,220); ctx.drawImage(img,0,0,300,220); };
         img.src = dataUrl;
-      } else if (defaultDraw) {
-        defaultDraw(ctx);
-      }
+      } else if (fallback) fallback(ctx);
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
-      const isHost = sessionStorage.getItem('isHost') === 'true';
+      const roomCode = sessionStorage.getItem('roomCode') || '7608';
+      const isHost   = sessionStorage.getItem('isHost') === 'true';
 
       if (window.PYBMultiplayer) {
         await window.PYBMultiplayer.init(roomCode, isHost);
       }
 
-      window.onRemoteCanvasResult = function (remoteDataUrl) {
-        sessionStorage.setItem('remoteCanvasData', remoteDataUrl);
-        renderCanvasData('resultCanvas1', remoteDataUrl);
+      window.onRemoteCanvasResult = function(url) {
+        sessionStorage.setItem('remoteCanvasData', url);
+        drawCanvas('resultCanvas1', url);
       };
 
-      // Draw Canvas 1 (Peer Artwork)
       const remoteData = sessionStorage.getItem('remoteCanvasData');
-      renderCanvasData('resultCanvas1', remoteData, (ctx1) => {
-        ctx1.fillStyle = '#222';
-        ctx1.fillRect(0, 0, 320, 240);
-        ctx1.fillStyle = '#ffeaa7';
-        ctx1.beginPath(); ctx1.arc(160, 120, 60, 0, Math.PI * 2); ctx1.fill();
-        ctx1.fillStyle = '#e74c3c';
-        ctx1.beginPath();
-        ctx1.moveTo(120, 75); ctx1.quadraticCurveTo(100, 30, 115, 30); ctx1.quadraticCurveTo(130, 50, 135, 70); ctx1.fill();
-        ctx1.beginPath();
-        ctx1.moveTo(200, 75); ctx1.quadraticCurveTo(220, 30, 205, 30); ctx1.quadraticCurveTo(190, 50, 185, 70); ctx1.fill();
-        ctx1.fillStyle = '#e74c3c';
-        ctx1.beginPath(); ctx1.arc(160, 125, 12, 0, Math.PI * 2); ctx1.fill();
+      const localData  = sessionStorage.getItem('drawnCanvasData');
+
+      // Canvas 1: Peer's artwork
+      drawCanvas('resultCanvas1', remoteData, (ctx) => {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0,0,300,220);
+        ctx.fillStyle = '#f0c8a0';
+        ctx.beginPath(); ctx.arc(150,100,55,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath(); ctx.moveTo(115,70); ctx.quadraticCurveTo(95,30,110,30); ctx.quadraticCurveTo(125,45,130,65); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(185,70); ctx.quadraticCurveTo(205,30,190,30); ctx.quadraticCurveTo(175,45,170,65); ctx.fill();
+        ctx.beginPath(); ctx.arc(150,108,11,0,Math.PI*2); ctx.fill();
       });
 
-      // Draw Canvas 2 (Local Artwork)
-      const localData = sessionStorage.getItem('drawnCanvasData');
-      renderCanvasData('resultCanvas2', localData, (ctx2) => {
-        ctx2.fillStyle = '#222';
-        ctx2.fillRect(0, 0, 320, 240);
-        ctx2.fillStyle = '#ffeaa7';
-        ctx2.beginPath(); ctx2.arc(160, 120, 60, 0, Math.PI * 2); ctx2.fill();
-        ctx2.strokeStyle = '#e67e22';
-        ctx2.lineWidth = 8;
-        ctx2.beginPath(); ctx2.arc(160, 110, 75, Math.PI * 0.8, Math.PI * 2.2); ctx2.stroke();
-        ctx2.fillStyle = '#e74c3c';
-        ctx2.beginPath(); ctx2.arc(160, 125, 14, 0, Math.PI * 2); ctx2.fill();
+      // Canvas 2: Your artwork
+      drawCanvas('resultCanvas2', localData, (ctx) => {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0,0,300,220);
+        ctx.fillStyle = '#f0c8a0';
+        ctx.beginPath(); ctx.arc(150,100,55,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.arc(150,90,70,Math.PI*0.75,Math.PI*2.25); ctx.stroke();
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath(); ctx.arc(150,110,13,0,Math.PI*2); ctx.fill();
       });
     });
   </script>

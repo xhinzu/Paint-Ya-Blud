@@ -3,61 +3,58 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paint Ya Blud - Main Menu</title>
+  <title>Paint Ya Blud</title>
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="app-viewport bg-sunset-field">
-    <!-- SVG Wavy Painterly Hills & Flowers background overlay -->
-    <svg class="bg-landscape-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
-      <path d="M0,350 Q250,280 500,340 T1000,300 L1000,600 L0,600 Z" fill="#7fa85b"/>
-      <path d="M0,420 Q300,360 600,440 T1000,390 L1000,600 L0,600 Z" fill="#588b35"/>
-      <!-- Flowers -->
-      <circle cx="150" cy="480" r="15" fill="#fd79a8" />
-      <circle cx="180" cy="510" r="12" fill="#ffee75" />
-      <circle cx="220" cy="470" r="18" fill="#74b9ff" />
-      <circle cx="650" cy="520" r="14" fill="#fd79a8" />
-      <circle cx="700" cy="490" r="16" fill="#ffee75" />
-      <circle cx="750" cy="530" r="15" fill="#a29bfe" />
-    </svg>
+  <!-- Global SVG Filters -->
+  <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="chalky" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
 
-    <!-- Top Right USER Button -->
+  <div class="app-viewport bg-main-menu">
+
+    <!-- USER button top-right -->
     <a href="user-menu.html" class="user-icon-btn">
-      <span>USER</span>
-      <div class="user-icon-badge">✎</div>
+      USER
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
     </a>
 
-    <!-- Top Rainbow Title "Paint Ya Blud" -->
-    <div class="menu-title-wrapper">
+    <!-- Rainbow Title -->
+    <div class="main-title-area">
       <h1 class="rainbow-title">
         <span>P</span><span>a</span><span>i</span><span>n</span><span>t</span>
         <span>&nbsp;</span>
-        <span>Y</span><span>a</span>
+        <span>y</span><span>a</span>
         <span>&nbsp;</span>
-        <span>B</span><span>l</span><span>u</span><span>d</span>
+        <span>B</span><span>L</span><span>U</span><span>D</span>
       </h1>
     </div>
 
-    <!-- Main Stacked Action Buttons (Left side) -->
-    <div class="main-menu-container">
-      <div class="menu-buttons-stack">
-        <a href="create.html" class="blob-btn btn-green">Create</a>
-        <a href="join.html" class="blob-btn btn-orange">Join</a>
-        <button onclick="alert('Thanks for playing Paint Ya Blud!')" class="blob-btn btn-red">Quit</button>
-      </div>
+    <!-- Menu Buttons Left -->
+    <div class="menu-buttons-stack">
+      <a href="create.html" class="blob-btn btn-green">create</a>
+      <a href="join.html"   class="blob-btn btn-orange">join</a>
+      <button onclick="if(confirm('Quit Paint Ya Blud?')) window.close()" class="blob-btn btn-red">quit</button>
     </div>
 
-    <!-- Mascot Stick Figure (Right side) -->
-    <div class="mascot-container">
-      <canvas id="mascotCanvas" width="320" height="380"></canvas>
+    <!-- Mascot Stick Figure Right -->
+    <div class="mascot-area">
+      <canvas id="mascotCanvas" width="320" height="420"></canvas>
     </div>
+
   </div>
 
   <script src="js/blob-panel.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      drawStickMascot('mascotCanvas', { headY: 120, headRadius: 65, lineWidth: 6 });
+      drawStickMascot('mascotCanvas', { headY: 110, headRadius: 70, lineWidth: 7 });
     });
   </script>
 </body>

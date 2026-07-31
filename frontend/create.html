@@ -8,50 +8,54 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="app-viewport bg-blossom-sky">
-    <!-- Back Button Top-Left -->
-    <a href="index.html" class="back-btn">Back</a>
+  <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="chalky" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
 
-    <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; z-index: 10;">
-      <!-- Title Blob -->
-      <div class="title-cloud-blob">Create</div>
+  <div class="app-viewport bg-create">
+    <a href="index.html" class="back-btn">↩</a>
 
-      <!-- Main Cloud Panel -->
-      <div class="blob-container create-room-panel">
-        <!-- Option 1: No of Players -->
+    <div class="create-panel">
+      <!-- Title cloud -->
+      <div class="create-title-cloud">create</div>
+
+      <!-- Main blob panel -->
+      <div class="chalk-blob" style="min-width: 380px;">
+        <!-- No of Players -->
         <div class="option-row">
           <div class="option-label">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" filter="url(#sketchy-filter)">
-              <circle cx="12" cy="8" r="5"/>
-              <path d="M3 21v-2a7 7 0 0 1 14 0v2"/>
-            </svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 14 0v2"/></svg>
             No of Players
           </div>
-          <div class="slider-wrapper">
-            <span style="font-family: var(--font-title); font-size: 1.5rem;">1</span>
-            <input type="range" min="1" max="4" value="2" class="custom-slider" id="playerSlider" oninput="document.getElementById('playerVal').innerText = this.value">
-            <span style="font-family: var(--font-title); font-size: 1.5rem;" id="playerVal">2</span>
-          </div>
+        </div>
+        <div class="slider-wrapper" style="margin-bottom:16px; padding: 0 4px;">
+          <span style="font-family:var(--font-body); font-size:1.5rem;">1</span>
+          <input type="range" min="1" max="4" value="2" class="custom-slider" id="playerSlider"
+            oninput="document.getElementById('playerVal').innerText = this.value">
+          <span style="font-family:var(--font-body); font-size:1.5rem;" id="playerVal">2</span>
+          <span style="font-family:var(--font-body); font-size:1.3rem; color:#888;">4</span>
         </div>
 
-        <!-- Option 2: Duration -->
+        <!-- Duration -->
         <div class="option-row">
           <div class="option-label">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5" filter="url(#sketchy-filter)">
-              <circle cx="12" cy="12" r="9"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>
             Duration
           </div>
-          <div class="duration-boxes">
-            <button class="dur-box active" onclick="selectDuration(this, 1)">1 min</button>
-            <button class="dur-box" onclick="selectDuration(this, 5)">5 min</button>
-            <button class="dur-box" onclick="selectDuration(this, 10)">10 min</button>
-          </div>
+        </div>
+        <div class="duration-boxes" style="margin-bottom: 20px; margin-top: 8px;">
+          <button class="dur-box active" id="dur1" onclick="selectDuration(this,1)">1 min</button>
+          <button class="dur-box"        id="dur5" onclick="selectDuration(this,5)">5 min</button>
+          <button class="dur-box"        id="dur10" onclick="selectDuration(this,10)">10 min</button>
         </div>
 
-        <!-- Create Action Button -->
-        <button onclick="handleCreateRoom()" class="blob-btn btn-green" style="font-size: 2rem; padding: 0.5rem 2.5rem; margin-top: 10px;">
+        <!-- Create button -->
+        <button onclick="handleCreateRoom()" class="blob-btn btn-green" style="font-size:2rem; padding:0.5rem 2.5rem; width:100%;">
           Create
         </button>
       </div>

@@ -6,59 +6,134 @@
   <title>Paint Ya Blud - Play</title>
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    body, html { overflow: hidden; }
+
+    .play-bg {
+      background-image: url('css/bg_main_menu.png');
+      background-size: cover;
+      background-position: center;
+    }
+
+    .green-crayon-border {
+      position: absolute;
+      inset: 0;
+      border: 8px solid #27ae60;
+      border-radius: 8px;
+      pointer-events: none;
+      z-index: 5;
+      box-shadow: inset 0 0 0 3px rgba(39,174,96,0.4), 0 0 0 3px rgba(39,174,96,0.3);
+    }
+
+    /* Crayon texture on border via filter */
+    .crayon-border-filter {
+      position: absolute;
+      inset: -4px;
+      border: 10px solid transparent;
+      border-radius: 10px;
+      background: 
+        linear-gradient(white, white) padding-box,
+        repeating-linear-gradient(
+          90deg,
+          #27ae60 0px, #2ecc71 2px, #1e8449 4px, #27ae60 6px
+        ) border-box;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .timer-display {
+      position: absolute;
+      top: 14px;
+      right: 200px;
+      font-family: var(--font-title);
+      font-size: 3.2rem;
+      color: #111;
+      z-index: 200;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 0 rgba(255,255,255,0.9);
+    }
+  </style>
 </head>
 <body>
-  <div class="app-viewport bg-sunset-field">
-    <!-- Countdown Timer (Top Right) -->
-    <div class="countdown-timer-display" id="timerDisplay">01:00</div>
+  <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="chalky" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="crayon-frame" x="-2%" y="-2%" width="104%" height="104%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
 
-    <div class="play-viewport">
-      <!-- Main Peer Video Feed + Canvas Drawing Surface Overlay -->
-      <div class="main-video-wrapper" id="mainVideoContainer">
-        <!-- Peer Webcam Stream or Simulated Video -->
-        <video id="peerVideo" class="main-video-element" autoplay playsinline muted></video>
-        
-        <!-- Interactive Drawing Canvas -->
-        <canvas id="drawingCanvas" class="drawing-canvas"></canvas>
+  <div class="app-viewport play-bg">
+    <!-- Timer -->
+    <div class="timer-display" id="timerDisplay">01:00</div>
+
+    <div class="play-layout">
+      <!-- Main camera area -->
+      <div class="main-cam-area">
+        <div class="main-cam-frame">
+          <video id="peerVideo" autoplay playsinline muted style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"></video>
+          <canvas id="drawingCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;cursor:crosshair;"></canvas>
+          <!-- Green crayon frame overlay -->
+          <div class="green-crayon-border"></div>
+        </div>
       </div>
 
-      <!-- Right Side Controls & Toolbar Strip -->
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 50;">
-        <!-- PIP Local Webcam Preview -->
-        <div class="pip-video-box">
+      <!-- Right Sidebar -->
+      <div class="play-sidebar">
+        <!-- PIP local cam -->
+        <div class="pip-cam-box">
           <video id="localVideo" autoplay playsinline muted></video>
         </div>
 
-        <!-- Vertical Cloud-Blob Toolbar Strip -->
-        <div class="toolbar-strip">
-          <!-- Color Palette Dots -->
-          <div class="color-dots-row">
-            <div class="color-dot active" style="background: #2ecc71;" onclick="selectColor('#2ecc71', this)"></div>
-            <div class="color-dot" style="background: #f1c40f;" onclick="selectColor('#f1c40f', this)"></div>
-            <div class="color-dot" style="background: #3498db;" onclick="selectColor('#3498db', this)"></div>
-            <div class="color-dot" style="background: #e74c3c;" onclick="selectColor('#e74c3c', this)"></div>
-            <div class="color-dot" style="background: #e67e22;" onclick="selectColor('#e67e22', this)"></div>
-            <div class="color-dot" style="background: #111111;" onclick="selectColor('#111111', this)"></div>
+        <!-- Toolbar blob -->
+        <div class="toolbar-blob">
+          <!-- Color palette -->
+          <div class="color-palette-row">
+            <div class="color-swatch active" style="background:#e74c3c;" onclick="selectColor('#e74c3c',this)"></div>
+            <div class="color-swatch" style="background:#e67e22;" onclick="selectColor('#e67e22',this)"></div>
+            <div class="color-swatch" style="background:#f1c40f;" onclick="selectColor('#f1c40f',this)"></div>
+            <div class="color-swatch" style="background:#27ae60;" onclick="selectColor('#27ae60',this)"></div>
+            <div class="color-swatch" style="background:#2980b9;" onclick="selectColor('#2980b9',this)"></div>
+            <div class="color-swatch" style="background:#111111;" onclick="selectColor('#111111',this)"></div>
           </div>
 
-          <!-- Tools List -->
-          <button class="tool-item active" id="toolCrayon" onclick="selectTool('crayon')">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+          <!-- Crayon tool -->
+          <button class="tool-btn active" id="toolCrayon" onclick="selectTool('crayon')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            </svg>
             crayon
           </button>
 
-          <button class="tool-item" id="toolPen" onclick="selectTool('pen')">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+          <!-- Pen tool -->
+          <button class="tool-btn" id="toolPen" onclick="selectTool('pen')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+            </svg>
             Pen
           </button>
 
-          <button class="tool-item" id="toolRubber" onclick="selectTool('rubber')">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2C14 1 16 1 17 2L21 6C22 7 22 9 21 10L12 19"/></svg>
+          <!-- Rubber tool -->
+          <button class="tool-btn" id="toolRubber" onclick="selectTool('rubber')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
+              <rect x="2" y="14" width="10" height="8" rx="2"/>
+              <path d="M22 4l-4-2-12 12 4 4z"/>
+            </svg>
             Rubber
           </button>
 
-          <button class="tool-item" id="toolPencil" onclick="selectTool('pencil')">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><line x1="18" y1="2" x2="22" y2="6"/><line x1="7.5" y1="20.5" x2="2" y2="22"/><line x1="2" y1="22" x2="3.5" y2="16.5"/></svg>
+          <!-- Pencil tool -->
+          <button class="tool-btn" id="toolPencil" onclick="selectTool('pencil')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
+              <line x1="18" y1="2" x2="22" y2="6"/>
+              <path d="M7.5 20.5L2 22l1.5-5.5L17 3l4 4z"/>
+            </svg>
             Pencil
           </button>
         </div>
@@ -72,62 +147,51 @@
   <script src="js/crayon-brush.js"></script>
   <script src="js/timer.js"></script>
   <script>
-    let activeStream = null;
-
     async function initWebcams() {
-      const localVideo = document.getElementById('localVideo');
-      const peerVideo = document.getElementById('peerVideo');
+      const localVideo  = document.getElementById('localVideo');
+      const peerVideo   = document.getElementById('peerVideo');
 
       try {
-        activeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = activeStream;
-
-        if (window.PYBMultiplayer) {
-          window.PYBMultiplayer.startVideoCall(activeStream);
-        }
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = stream;
+        if (window.PYBMultiplayer) window.PYBMultiplayer.startVideoCall(stream);
       } catch (err) {
-        console.warn('Webcam permission denied or not available, using fallback:', err);
-        createMockVideoFeed(localVideo, 'You');
-        createMockVideoFeed(peerVideo, 'Peer');
+        console.warn('Webcam not available, using mock feed:', err);
+        createMockFeed(localVideo, 'You');
+        createMockFeed(peerVideo, 'Peer');
       }
     }
 
-    function createMockVideoFeed(videoElem, label) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 480;
-      const ctx = canvas.getContext('2d');
-
-      let frame = 0;
+    function createMockFeed(videoElem, label) {
+      const c = document.createElement('canvas');
+      c.width = 640; c.height = 480;
+      const ctx = c.getContext('2d');
+      let f = 0;
       function animate() {
-        frame++;
-        ctx.fillStyle = '#2d3436';
+        f++;
+        ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, 640, 480);
-        
-        ctx.fillStyle = '#dfe6e9';
+        ctx.fillStyle = '#e8d5b7';
         ctx.beginPath();
-        ctx.arc(320, 200 + Math.sin(frame * 0.05) * 5, 100, 0, Math.PI * 2);
+        ctx.arc(320, 200 + Math.sin(f * 0.04) * 6, 105, 0, Math.PI * 2);
         ctx.fill();
-
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 4;
+        ctx.stroke();
         ctx.fillStyle = '#111';
-        ctx.font = 'bold 36px "Permanent Marker", cursive';
-        ctx.fillText(`${label} Webcam Feed`, 180, 400);
-
+        ctx.font = 'bold 28px "Permanent Marker", cursive';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, 320, 430);
         requestAnimationFrame(animate);
       }
       animate();
-
-      const stream = canvas.captureStream(30);
-      videoElem.srcObject = stream;
-      if (label === 'You' && window.PYBMultiplayer) {
-        window.PYBMultiplayer.startVideoCall(stream);
-      }
+      videoElem.srcObject = c.captureStream(30);
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
-      const isHost = sessionStorage.getItem('isHost') === 'true';
+      const urlParams  = new URLSearchParams(window.location.search);
+      const roomCode   = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      const isHost     = sessionStorage.getItem('isHost') === 'true';
 
       if (window.PYBMultiplayer) {
         await window.PYBMultiplayer.init(roomCode, isHost);
@@ -137,20 +201,12 @@
       initCrayonCanvas('drawingCanvas');
 
       const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
-      const durationSeconds = durationMins * 60;
-
-      startCountdownTimer(durationSeconds, 'timerDisplay', () => {
+      startCountdownTimer(durationMins * 60, 'timerDisplay', () => {
         const canvas = document.getElementById('drawingCanvas');
         const drawnData = canvas ? canvas.toDataURL() : '';
         sessionStorage.setItem('drawnCanvasData', drawnData);
-
-        if (window.PYBMultiplayer) {
-          window.PYBMultiplayer.sendCanvasResult(drawnData);
-        }
-
-        setTimeout(() => {
-          window.location.href = 'reveal.html';
-        }, 500);
+        if (window.PYBMultiplayer) window.PYBMultiplayer.sendCanvasResult(drawnData);
+        setTimeout(() => window.location.href = 'reveal.html', 500);
       });
     });
   </script>

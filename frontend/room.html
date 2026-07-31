@@ -6,169 +6,85 @@
   <title>Paint Ya Blud - Your Room</title>
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    .room-players-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 25px 40px;
-      margin: 1.5rem 0;
-    }
-
-    .player-slot {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-    }
-
-    .player-avatar-head {
-      width: 70px;
-      height: 70px;
-      border-radius: 50%;
-      border: 4px solid #111;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      filter: url(#sketchy-filter);
-    }
-
-    .player-avatar-head.waiting {
-      border: 4px dashed #888;
-      background: #fafafa;
-    }
-
-    .status-dots {
-      position: absolute;
-      right: -18px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .status-dot {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      border: 2px solid #111;
-    }
-
-    .status-dot.green { background: var(--color-green); }
-    .status-dot.red { background: var(--color-red); }
-
-    .player-name-label {
-      font-family: var(--font-title);
-      font-size: 1.6rem;
-      margin-top: 8px;
-      color: #111;
-    }
-
-    .friends-drawer {
-      position: absolute;
-      right: 20px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 220px;
-      background: #fff;
-      border: 5px solid #111;
-      border-radius: 30px;
-      padding: 15px;
-      filter: url(#sketchy-filter);
-      box-shadow: 4px 6px 0px #000;
-      z-index: 20;
-    }
-
-    .friend-invite-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 2px dashed #ccc;
-      font-family: var(--font-title);
-      font-size: 1.3rem;
-    }
-
-    .invite-btn {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      border: 2px solid #111;
-      background: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      cursor: pointer;
-    }
-  </style>
 </head>
 <body>
-  <div class="app-viewport bg-waterfall-night">
-    <!-- Back Button Top-Left -->
-    <a href="index.html" class="back-btn">Back</a>
+  <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="chalky" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+  </svg>
 
-    <!-- Main Room Panel -->
-    <div class="blob-container" style="width: 500px; min-height: 480px; padding: 2rem 3rem;">
-      <h1 style="font-family: var(--font-title); font-size: 3.2rem; color: var(--color-green); text-decoration: underline; filter: url(#sketchy-filter);">
-        Your Room
-      </h1>
-      
-      <div style="font-family: var(--font-title); font-size: 2.2rem; color: var(--color-red); margin-top: 5px; cursor: pointer;" id="roomCodeDisplay" title="Click to copy code">
-        code: ----
-      </div>
+  <div class="app-viewport bg-room">
+    <a href="index.html" class="back-btn">↩</a>
 
-      <!-- 2x2 Players Grid -->
-      <div class="room-players-grid">
-        <!-- Slot 1 -->
-        <div class="player-slot" id="slot1">
-          <div class="player-avatar-head">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <div class="status-dots">
-              <div class="status-dot green"></div>
+    <div class="room-layout">
+      <!-- Main Room Blob -->
+      <div class="chalk-blob room-panel">
+        <h1 style="font-family:var(--font-title); font-size:2.8rem; color:var(--color-green); text-decoration:underline; margin-bottom:4px;">
+          Your Room
+        </h1>
+        <div class="room-code-display" id="roomCodeDisplay" title="Click to copy" onclick="copyCode()">
+          code: ----
+        </div>
+
+        <!-- 2x2 Player Grid -->
+        <div class="players-grid-2x2">
+          <!-- Slot 1 -->
+          <div class="player-slot" id="slot1">
+            <div class="player-avatar" style="position:relative;">
+              <canvas id="avatarCanvas1" width="80" height="80"></canvas>
+              <div class="player-status-dots">
+                <div class="status-dot green"></div>
+              </div>
             </div>
+            <div class="player-name" id="nameSlot1">You</div>
           </div>
-          <div class="player-name-label" id="nameSlot1">You</div>
+          <!-- Slot 2 -->
+          <div class="player-slot" id="slot2">
+            <div class="player-avatar" style="position:relative;">
+              <canvas id="avatarCanvas2" width="80" height="80"></canvas>
+              <div class="player-status-dots">
+                <div class="status-dot grey"></div>
+              </div>
+            </div>
+            <div class="player-name waiting" id="nameSlot2">Waiting...</div>
+          </div>
+          <!-- Slot 3 -->
+          <div class="player-slot" id="slot3">
+            <div class="player-avatar" style="position:relative;">
+              <canvas id="avatarCanvas3" width="80" height="80"></canvas>
+              <div class="player-status-dots">
+                <div class="status-dot grey"></div>
+              </div>
+            </div>
+            <div class="player-name waiting" id="nameSlot3">Waiting...</div>
+          </div>
+          <!-- Slot 4 -->
+          <div class="player-slot" id="slot4">
+            <div class="player-avatar" style="position:relative;">
+              <canvas id="avatarCanvas4" width="80" height="80"></canvas>
+              <div class="player-status-dots">
+                <div class="status-dot grey"></div>
+              </div>
+            </div>
+            <div class="player-name waiting" id="nameSlot4">Waiting...</div>
+          </div>
         </div>
 
-        <!-- Slot 2 -->
-        <div class="player-slot" id="slot2">
-          <div class="player-avatar-head waiting">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <div class="player-name-label" id="nameSlot2" style="color: #888;">Waiting...</div>
-        </div>
-
-        <!-- Slot 3 -->
-        <div class="player-slot" id="slot3">
-          <div class="player-avatar-head waiting">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <div class="player-name-label" id="nameSlot3" style="color: #888;">Waiting...</div>
-        </div>
-
-        <!-- Slot 4 -->
-        <div class="player-slot" id="slot4">
-          <div class="player-avatar-head waiting">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <div class="player-name-label" id="nameSlot4" style="color: #888;">Waiting...</div>
-        </div>
+        <!-- START button -->
+        <button id="startBtn" onclick="handleStartClick()" class="blob-btn btn-green"
+          style="font-size:2.4rem; padding:0.5rem 3rem; margin-top:8px; width:100%;">
+          START
+        </button>
       </div>
 
-      <!-- Start Action Button -->
-      <button id="startBtn" onclick="handleStartClick()" class="blob-btn btn-green" style="font-size: 2.4rem; padding: 0.5rem 3rem;">
-        START
-      </button>
-    </div>
-
-    <!-- Quick Friends Drawer on the Right -->
-    <div class="friends-drawer">
-      <h3 style="font-family: var(--font-title); font-size: 1.8rem; border-bottom: 3px solid #111; padding-bottom: 5px;">Friends</h3>
-      <div id="quickFriendsList">
-        <!-- Friends rendered dynamically -->
+      <!-- Friends Side Panel -->
+      <div class="friends-side-panel">
+        <h3>Friends</h3>
+        <div id="friendsList"></div>
       </div>
     </div>
   </div>
@@ -180,69 +96,82 @@
     let isHost = false;
     let roomCode = '7608';
 
+    function drawSnowmanAvatar(canvasId, active) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, 80, 80);
+      ctx.strokeStyle = active ? '#111' : '#aaa';
+      ctx.lineWidth = active ? 3.5 : 2.5;
+      ctx.fillStyle = active ? 'rgba(255,255,255,0.9)' : 'rgba(240,240,240,0.5)';
+      // Head
+      ctx.beginPath(); ctx.arc(40, 28, 20, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      // Body
+      ctx.beginPath(); ctx.arc(40, 60, 16, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+
+    function copyCode() {
+      navigator.clipboard.writeText(roomCode).catch(() => {});
+      const el = document.getElementById('roomCodeDisplay');
+      el.innerText = `code: ${roomCode} ✓`;
+      setTimeout(() => el.innerText = `code: ${roomCode}`, 2000);
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       const urlParams = new URLSearchParams(window.location.search);
       roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
       isHost = urlParams.get('host') === 'true' || sessionStorage.getItem('isHost') === 'true';
 
-      const codeElem = document.getElementById('roomCodeDisplay');
-      codeElem.innerText = `code: ${roomCode}`;
-      codeElem.addEventListener('click', () => {
-        navigator.clipboard.writeText(roomCode);
-        alert(`Room Code ${roomCode} copied to clipboard! Share it with your friends globally.`);
-      });
+      document.getElementById('roomCodeDisplay').innerText = `code: ${roomCode}`;
 
       const username = localStorage.getItem('pyb_username') || 'You';
+      document.getElementById('nameSlot1').innerText = username;
 
-      // Update Start button state based on host status
-      const startBtn = document.getElementById('startBtn');
+      // Draw all avatars
+      for (let i = 1; i <= 4; i++) drawSnowmanAvatar(`avatarCanvas${i}`, i === 1);
+
       if (!isHost) {
-        startBtn.innerText = 'WAITING FOR HOST...';
-        startBtn.style.opacity = '0.7';
-        startBtn.style.cursor = 'not-allowed';
+        const btn = document.getElementById('startBtn');
+        btn.innerText = 'Waiting...';
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
       }
 
-      // Initialize Multiplayer Real-time Engine
       if (window.PYBMultiplayer) {
         await window.PYBMultiplayer.init(roomCode, isHost, username);
       }
 
-      // Render friends list
+      // Render friends in side panel
       const friends = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
-      const container = document.getElementById('quickFriendsList');
-      container.innerHTML = '';
+      const fl = document.getElementById('friendsList');
+      fl.innerHTML = '';
       if (friends.length === 0) {
-        container.innerHTML = '<div style="font-family: var(--font-title); font-size: 1.2rem; color: #777; margin-top: 10px;">No friends to invite!</div>';
+        fl.innerHTML = '<div style="font-family:var(--font-body);font-size:1.3rem;color:#888;margin-top:8px;">No friends yet!</div>';
       } else {
-        friends.forEach(friend => {
-          const item = document.createElement('div');
-          item.className = 'friend-invite-item';
-          item.innerHTML = `<span>${friend}</span><button class="invite-btn" onclick="this.innerText='✓'">+</button>`;
-          container.appendChild(item);
+        friends.forEach(f => {
+          const row = document.createElement('div');
+          row.className = 'friend-row';
+          row.innerHTML = `<span>${f}</span><button class="friend-plus-btn" onclick="this.innerText='✓'">+</button>`;
+          fl.appendChild(row);
         });
       }
     });
 
-    // Callback invoked when lobby player list updates
-    window.updateLobbyUI = function (players) {
+    window.updateLobbyUI = function(players) {
       for (let i = 1; i <= 4; i++) {
-        const nameLabel = document.getElementById(`nameSlot${i}`);
-        const slotElem = document.getElementById(`slot${i}`);
-        const headElem = slotElem ? slotElem.querySelector('.player-avatar-head') : null;
-
+        const nameEl = document.getElementById(`nameSlot${i}`);
+        const dotEl = document.querySelector(`#slot${i} .status-dot`);
         const player = players[i - 1];
         if (player) {
-          nameLabel.innerText = player.name + (player.isHost ? ' (Host)' : '');
-          nameLabel.style.color = '#111';
-          if (headElem) {
-            headElem.classList.remove('waiting');
-          }
+          nameEl.innerText = player.name + (player.isHost ? ' 👑' : '');
+          nameEl.className = 'player-name';
+          drawSnowmanAvatar(`avatarCanvas${i}`, true);
+          if (dotEl) { dotEl.className = 'status-dot green'; }
         } else {
-          nameLabel.innerText = 'Waiting...';
-          nameLabel.style.color = '#888';
-          if (headElem) {
-            headElem.classList.add('waiting');
-          }
+          nameEl.innerText = 'Waiting...';
+          nameEl.className = 'player-name waiting';
+          drawSnowmanAvatar(`avatarCanvas${i}`, false);
+          if (dotEl) { dotEl.className = 'status-dot grey'; }
         }
       }
     };
@@ -253,7 +182,7 @@
       } else if (isHost) {
         window.location.href = `play.html?code=${roomCode}`;
       } else {
-        alert('Waiting for the room host to start the game!');
+        alert('Waiting for the host to start!');
       }
     }
   </script>
