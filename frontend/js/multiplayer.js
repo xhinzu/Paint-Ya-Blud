@@ -136,31 +136,27 @@
           this.setupDataConnection(conn);
         });
 
-        peer.on('call', async (call) => {
+        peer.on('call', (call) => {
           console.log(`[P2P] Incoming media call from ${call.peer}`);
-
-          const answerWithStream = (stream) => {
-            call.answer(stream);
-            call.on('stream', (remoteStream) => {
-              attachMediaStreamToVideo(remoteStream);
-            });
-          };
-
-          if (!localStream) {
-            try {
-              localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-              const localVideo = document.getElementById('localVideo');
-              if (localVideo) localVideo.srcObject = localStream;
-            } catch (err) {
-              console.warn('[P2P] MediaStream access failed:', err);
-            }
-          }
+          mediaCalls.set(call.peer, call);
 
           if (localStream) {
-            answerWithStream(localStream);
+            call.answer(localStream);
           } else {
-            call.answer();
+            console.warn('[P2P] Answering call without stream, requesting webcam...');
+            navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 640 }, height: { ideal: 480 } },
+              audio: true
+            }).then(stream => {
+              localStream = stream;
+              call.answer(localStream);
+            }).catch(() => call.answer());
           }
+
+          call.on('stream', (remoteStream) => {
+            console.log('[P2P] Incoming call stream received');
+            attachMediaStreamToVideo(remoteStream);
+          });
         });
 
         peer.on('error', (err) => {
@@ -198,6 +194,15 @@
         if (localStream && peer) {
           initiateCallToPeer(conn.peer);
         }
+
+        // 2s stream verification check (auto-reconnects if 1-way call dropped)
+        setTimeout(() => {
+          const peerVideo = document.getElementById('peerVideo');
+          if (peerVideo && (!peerVideo.srcObject || peerVideo.srcObject.getTracks().length === 0)) {
+            console.log('[P2P] PeerVideo still empty after 2s, re-initiating media call...');
+            if (localStream && peer) initiateCallToPeer(conn.peer);
+          }
+        }, 2000);
       });
 
       conn.on('data', (data) => {

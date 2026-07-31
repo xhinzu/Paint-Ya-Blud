@@ -311,14 +311,15 @@
       }
       sessionStorage.setItem('durationMins', durationMins);
 
-      // 1. Start local webcam & mic FIRST so localStream is active before network connects
+      // 1. MUST start webcam FIRST so localStream is active before network connects
       await initWebcams();
 
-      // 2. Init multiplayer network and AI face tracking in parallel
-      const multiplayerPromise = window.PYBMultiplayer ? window.PYBMultiplayer.init(roomCode, isHost, null, 'game') : Promise.resolve();
-      const arPromise          = window.initFaceAR('drawingCanvas', 'peerVideo', 'localDrawingCanvas');
+      // 2. Init multiplayer network and AI face tracking
+      if (window.PYBMultiplayer) {
+        await window.PYBMultiplayer.init(roomCode, isHost, null, 'game');
+      }
 
-      await Promise.all([multiplayerPromise, arPromise]);
+      await window.initFaceAR('drawingCanvas', 'peerVideo', 'localDrawingCanvas');
 
       // Hide loading overlay once ready
       const overlay = document.getElementById('arLoadingOverlay');
