@@ -9,19 +9,22 @@
 
 (function () {
   let peer = null;
-  let connections  = new Map(); // peerId -> DataConnection
-  let mediaCalls   = new Map(); // peerId -> MediaConnection
-  let myPeerId     = null;
-  let roomCode     = null;
-  let isHost       = false;
-  let phase        = 'lobby';
+  let connections     = new Map(); // peerId -> DataConnection
+  let mediaCalls      = new Map(); // peerId -> MediaConnection
+  let myPeerId        = null;
+  let roomCode        = null;
+  let isHost          = false;
+  let phase           = 'lobby';
 
-  let localStream  = null;
-  let playersList  = []; // [{ id, name, isHost, character }]
+  let localStream     = null;
+  let playersList     = []; // [{ id, name, isHost, character }]
 
   let mqttClient      = null;
   let pulseTimer      = null;
   let isConnectedHost = false;
+
+  // Save reference to public API for use inside callbacks where `this` is unavailable
+  let API = null;
 
   // Global ICE Servers (STUN + TURN for cross-household NAT/firewall traversal)
   const ICE_SERVERS = [
@@ -61,14 +64,23 @@
 
   function initiateCallToPeer(targetPeerId) {
     if (!peer || !localStream || !targetPeerId) return;
-    if (mediaCalls.has(targetPeerId)) return;
+    if (mediaCalls.has(targetPeerId)) return; // Already calling
 
     console.log(`[P2P] Initiating 2-way media call to ${targetPeerId}`);
     const call = peer.call(targetPeerId, localStream);
+    if (!call) return;
     mediaCalls.set(targetPeerId, call);
 
     call.on('stream', (remoteStream) => {
       attachMediaStreamToVideo(remoteStream);
+    });
+
+    call.on('close', () => {
+      mediaCalls.delete(targetPeerId);
+    });
+
+    call.on('error', () => {
+      mediaCalls.delete(targetPeerId);
     });
   }
 
@@ -76,7 +88,7 @@
 
   function initMQTTSignaling(code, currentPhase) {
     if (typeof Paho === 'undefined') {
-      console.warn('[MQTT] Paho library not loaded.');
+      console.warn('[MQTT] Paho library not loaded — MQTT signaling unavailable.');
       return;
     }
 
@@ -85,7 +97,7 @@
       mqttClient = null;
     }
 
-    const clientId = `pyb_mqtt_${Math.floor(100000 + Math.random() * 900000)}`;
+    const clientId = `pyb_${Math.floor(100000 + Math.random() * 900000)}`;
     const topic    = `pyb/room/${code}/${currentPhase}`;
 
     try {
@@ -108,29 +120,31 @@
       mqttClient.connect({
         useSSL: true,
         timeout: 5,
+        keepAliveInterval: 30,
         onSuccess: () => {
-          console.log(`[MQTT] Connected to global signaling broker. Topic: ${topic}`);
+          console.log(`[MQTT] Connected to signaling broker. Topic: ${topic}`);
           mqttClient.subscribe(topic);
 
+          // Announce immediately on connect
           if (isHost && myPeerId) {
             publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
-          } else {
+          } else if (!isHost) {
             publishMQTT({ type: 'find-host' });
           }
         },
         onFailure: (err) => {
-          console.warn('[MQTT] Connection failed:', err);
+          console.warn('[MQTT] Broker connection failed:', err.errorMessage);
         }
       });
     } catch (e) {
-      console.warn('[MQTT] Init failed:', e);
+      console.warn('[MQTT] Init error:', e);
     }
   }
 
   function publishMQTT(payload) {
     if (!mqttClient || !mqttClient.isConnected()) return;
     try {
-      const topic = `pyb/room/${roomCode}/${phase}`;
+      const topic   = `pyb/room/${roomCode}/${phase}`;
       const msgText = JSON.stringify({ ...payload, code: roomCode, phase: phase, sender: myPeerId });
       const message = new Paho.MQTT.Message(msgText);
       message.destinationName = topic;
@@ -139,38 +153,40 @@
   }
 
   function handleSignalingMessage(msg) {
-    if (!msg || msg.code !== roomCode || msg.phase !== phase || msg.sender === myPeerId) return;
+    if (!msg || msg.code !== roomCode || msg.phase !== phase) return;
+    if (msg.sender === myPeerId) return; // Ignore our own messages
 
-    if (msg.type === 'host-announce') {
-      if (!isHost && !isConnectedHost && msg.hostPeerId) {
-        console.log(`[Signaling] Discovered Host PeerID: ${msg.hostPeerId}. Connecting...`);
-        connectToHost(msg.hostPeerId);
+    if (msg.type === 'host-announce' && !isHost) {
+      if (!isConnectedHost && msg.hostPeerId) {
+        console.log(`[Signaling] Discovered Host PeerID via MQTT: ${msg.hostPeerId}`);
+        connectToPeer(msg.hostPeerId);
       }
-    } else if (msg.type === 'find-host') {
-      if (isHost && myPeerId) {
-        console.log(`[Signaling] Received find-host. Announcing PeerID: ${myPeerId}`);
-        publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
-      }
+    } else if (msg.type === 'find-host' && isHost && myPeerId) {
+      console.log('[Signaling] Received find-host request, announcing...');
+      publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
     }
   }
 
-  function connectToHost(targetPeerId) {
-    if (!peer || !targetPeerId || isConnectedHost) return;
+  function connectToPeer(targetPeerId) {
+    if (!peer || !targetPeerId) return;
+    if (isConnectedHost) return; // Already connected to host
+
     const localName = localStorage.getItem('pyb_username') || 'Player';
     const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
-    console.log(`[P2P] Connecting to Host (${targetPeerId})...`);
+    console.log(`[P2P] Connecting to peer (${targetPeerId})...`);
     const conn = peer.connect(targetPeerId, {
       metadata: { name: localName, character: localChar },
       reliable: true
     });
-    window.PYBMultiplayer.setupDataConnection(conn);
+    API.setupDataConnection(conn);
   }
 
   /* ---- Public API ---- */
 
-  window.PYBMultiplayer = {
-    init: function (code, hostFlag, username, currentPhase = 'lobby') {
+  API = {
+    init: function (code, hostFlag, username, currentPhase) {
+      currentPhase    = currentPhase || 'lobby';
       roomCode        = code;
       isHost          = hostFlag;
       phase           = currentPhase;
@@ -179,8 +195,12 @@
       const localName = username || localStorage.getItem('pyb_username') || 'Player';
       const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
-      // Cleanup old timers & peer instances
+      // Cleanup old state
       if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
+      if (mqttClient) {
+        try { mqttClient.disconnect(); } catch (_) {}
+        mqttClient = null;
+      }
       if (peer) {
         try { peer.destroy(); } catch (_) {}
         peer = null;
@@ -188,7 +208,7 @@
       connections.clear();
       mediaCalls.clear();
 
-      // Deterministic fallback ID + Random unique ID (prevents PeerJS unavailable-id collision)
+      // Every peer gets a unique random ID — eliminates PeerJS ID collision errors
       const uniqueRandom = Math.floor(100000 + Math.random() * 900000);
       const myTargetId   = `pyb-${phase}-${isHost ? 'host' : 'user'}-${uniqueRandom}`;
 
@@ -210,34 +230,27 @@
 
           if (isHost) {
             playersList = [{ id: myPeerId, name: localName, isHost: true, character: localChar }];
-            this.notifyLobbyUpdate();
+            API.notifyLobbyUpdate();
           }
 
-          // Fallback deterministic connect attempt (same Wi-Fi / same PC)
-          const fallbackHostId = `pyb-${phase}-host-${roomCode}`;
-          if (!isHost) {
-            connectToHost(fallbackHostId);
-          }
-
-          // Initialize EMQX MQTT global signaling relay
+          // Initialize MQTT global signaling (discovers peers across any network)
           initMQTTSignaling(roomCode, phase);
 
-          // Fast signaling pulse timer
+          // Pulse timer: host announces itself, joiner keeps trying to find host
           pulseTimer = setInterval(() => {
             if (isHost && myPeerId) {
               publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
             } else if (!isHost && !isConnectedHost) {
-              connectToHost(fallbackHostId);
               publishMQTT({ type: 'find-host' });
             }
-          }, 300);
+          }, 500);
 
           resolve(true);
         });
 
         peer.on('connection', (conn) => {
-          console.log(`[P2P] Incoming direct connection from ${conn.peer}`);
-          this.setupDataConnection(conn);
+          console.log(`[P2P] Incoming connection from ${conn.peer}`);
+          API.setupDataConnection(conn);
         });
 
         peer.on('call', (call) => {
@@ -247,24 +260,38 @@
           if (localStream) {
             call.answer(localStream);
           } else {
-            console.warn('[P2P] Answering call without stream, requesting webcam...');
+            // Request webcam and answer with stream
             navigator.mediaDevices.getUserMedia({
               video: { width: { ideal: 640 }, height: { ideal: 480 } },
               audio: true
-            }).then(stream => {
+            }).then((stream) => {
               localStream = stream;
               call.answer(localStream);
-            }).catch(() => call.answer());
+            }).catch(() => {
+              call.answer(); // Answer without stream as last resort
+            });
           }
 
           call.on('stream', (remoteStream) => {
-            console.log('[P2P] Incoming call stream received');
+            console.log('[P2P] Remote stream received from incoming call ✓');
             attachMediaStreamToVideo(remoteStream);
+          });
+
+          call.on('close', () => {
+            mediaCalls.delete(call.peer);
           });
         });
 
         peer.on('error', (err) => {
-          console.warn('[P2P Error]', err.type, err.message);
+          // 'unavailable-id' just means collision — our random IDs make this very rare
+          // 'peer-unavailable' means we tried to connect to someone who isn't online yet
+          // Both are non-fatal; MQTT signaling will retry
+          console.warn('[P2P] Error:', err.type, '-', err.message);
+        });
+
+        peer.on('disconnected', () => {
+          console.warn('[P2P] Peer disconnected from PeerJS server, reconnecting...');
+          try { peer.reconnect(); } catch (_) {}
         });
       });
     },
@@ -273,7 +300,13 @@
       if (!conn) return;
 
       conn.on('open', () => {
-        console.log(`[P2P] Direct DataChannel OPEN with ${conn.peer}`);
+        console.log(`[P2P] DataChannel OPEN with ${conn.peer}`);
+
+        // Prevent duplicate registrations
+        if (connections.has(conn.peer)) {
+          console.log('[P2P] Duplicate connection, closing old one');
+          try { connections.get(conn.peer).close(); } catch (_) {}
+        }
         connections.set(conn.peer, conn);
 
         const localName = localStorage.getItem('pyb_username') || 'Player';
@@ -281,6 +314,7 @@
 
         if (!isHost) {
           isConnectedHost = true;
+          // Stop pulse timer — we are connected
           if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
 
           conn.send({
@@ -291,36 +325,44 @@
           });
         }
 
-        // Initiate 2-way media call if localStream is ready
+        // Initiate media call if localStream is ready
         if (localStream && peer) {
           initiateCallToPeer(conn.peer);
         }
 
-        // 2s stream verification check (auto-reconnects if 1-way call dropped)
+        // 2-second stream verify: auto re-call if one-way stream happened
         setTimeout(() => {
           const peerVideo = document.getElementById('peerVideo');
-          if (peerVideo && (!peerVideo.srcObject || peerVideo.srcObject.getTracks().length === 0)) {
-            console.log('[P2P] PeerVideo still empty after 2s, re-initiating media call...');
-            if (localStream && peer) initiateCallToPeer(conn.peer);
+          const hasTracks = peerVideo && peerVideo.srcObject &&
+                            peerVideo.srcObject.getTracks().length > 0;
+          if (!hasTracks && localStream && peer && connections.has(conn.peer)) {
+            console.log('[P2P] No peer video after 2s, re-initiating media call...');
+            mediaCalls.delete(conn.peer); // Allow re-attempt
+            initiateCallToPeer(conn.peer);
           }
         }, 2000);
       });
 
       conn.on('data', (data) => {
-        this.handleIncomingData(data, conn);
+        API.handleIncomingData(data, conn);
       });
 
       conn.on('error', (err) => {
-        console.warn('[P2P] Connection error:', err);
+        console.warn('[P2P] DataChannel error:', err);
         connections.delete(conn.peer);
       });
 
       conn.on('close', () => {
-        console.log(`[P2P] Connection CLOSED with ${conn.peer}`);
+        console.log(`[P2P] DataChannel CLOSED with ${conn.peer}`);
         connections.delete(conn.peer);
+        mediaCalls.delete(conn.peer);
+
         if (isHost) {
           playersList = playersList.filter(p => p.id !== conn.peer);
-          this.notifyLobbyUpdate();
+          API.notifyLobbyUpdate();
+        } else {
+          // Joiner lost connection to host — reset and try again
+          isConnectedHost = false;
         }
       });
     },
@@ -329,49 +371,58 @@
       if (!data || !data.type) return;
 
       switch (data.type) {
-        case 'join-request':
-          if (isHost) {
-            const joinerId = conn.peer;
-            const existing = playersList.find(p => p.id === joinerId);
-            if (!existing) {
-              playersList.push({
-                id: joinerId,
-                name: data.name || 'Player',
-                isHost: false,
-                character: data.character || {}
-              });
-            } else {
-              existing.character = data.character || existing.character;
-            }
-            this.notifyLobbyUpdate();
-
-            if (conn.open) {
-              conn.send({ type: 'lobby-update', players: playersList });
-            }
+        case 'join-request': {
+          if (!isHost) break;
+          const joinerId  = conn.peer;
+          const existing  = playersList.find(p => p.id === joinerId);
+          if (!existing) {
+            playersList.push({
+              id: joinerId,
+              name: data.name || 'Player',
+              isHost: false,
+              character: data.character || {}
+            });
+          } else {
+            existing.name      = data.name || existing.name;
+            existing.character = data.character || existing.character;
+          }
+          API.notifyLobbyUpdate();
+          // Also send full lobby state directly back to the new joiner
+          if (conn.open) {
+            const durationMins = sessionStorage.getItem('durationMins') || '1';
+            conn.send({ type: 'lobby-update', players: playersList, durationMins: durationMins });
           }
           break;
+        }
 
-        case 'lobby-update':
-          playersList = data.players;
-          if (data && data.durationMins) {
-            sessionStorage.setItem('durationMins', data.durationMins);
+        case 'lobby-update': {
+          if (Array.isArray(data.players)) {
+            playersList = data.players;
+          }
+          if (data.durationMins) {
+            sessionStorage.setItem('durationMins', String(data.durationMins));
           }
           if (window.updateLobbyUI) {
             window.updateLobbyUI(playersList);
           }
           break;
+        }
 
-        case 'start-game':
-          console.log('[P2P] Game started by host');
-          if (data) {
-            if (data.startTime)    sessionStorage.setItem('pyb_game_start_time', data.startTime);
-            if (data.durationMins) sessionStorage.setItem('durationMins', data.durationMins);
-          }
-          const targetUrl = (data && data.url)
-            ? data.url
-            : `play.html?code=${roomCode}&duration=${sessionStorage.getItem('durationMins') || 1}`;
-          window.location.href = targetUrl;
+        case 'start-game': {
+          console.log('[P2P] START GAME signal received from host');
+          if (data.startTime)    sessionStorage.setItem('pyb_game_start_time', String(data.startTime));
+          if (data.durationMins) sessionStorage.setItem('durationMins', String(data.durationMins));
+
+          const roomCodeParam = roomCode || sessionStorage.getItem('roomCode') || '';
+          const dur           = data.durationMins || sessionStorage.getItem('durationMins') || '1';
+          const t             = data.startTime || Date.now();
+          // Build URL with all sync parameters
+          const targetUrl = data.url ||
+            `play.html?code=${roomCodeParam}&duration=${dur}&t=${t}`;
+          // Small delay so data flush can complete
+          setTimeout(() => { window.location.href = targetUrl; }, 150);
           break;
+        }
 
         case 'draw-stroke':
           if (window.renderRemoteStrokePoint) {
@@ -407,11 +458,13 @@
 
     triggerStartGame: function () {
       if (!isHost) return;
+
       const startTime    = Date.now();
       const durationMins = sessionStorage.getItem('durationMins') || '1';
-      sessionStorage.setItem('pyb_game_start_time', startTime);
+      sessionStorage.setItem('pyb_game_start_time', String(startTime));
 
-      const gameUrl = `play.html?code=${roomCode}&duration=${durationMins}&t=${startTime}`;
+      const roomCodeParam = roomCode || sessionStorage.getItem('roomCode') || '';
+      const gameUrl = `play.html?code=${roomCodeParam}&duration=${durationMins}&t=${startTime}`;
 
       this.broadcast({
         type: 'start-game',
@@ -420,17 +473,14 @@
         durationMins: durationMins
       });
 
-      // 120ms buffer to allow WebRTC packet to flush before page unload
+      // 200ms buffer so packet flushes before this page navigates away
       setTimeout(() => {
         window.location.href = gameUrl;
-      }, 120);
+      }, 200);
     },
 
     sendStrokePoint: function (strokeData) {
-      this.broadcast({
-        type: 'draw-stroke',
-        stroke: strokeData
-      });
+      this.broadcast({ type: 'draw-stroke', stroke: strokeData });
     },
 
     sendClearCanvas: function () {
@@ -438,16 +488,12 @@
     },
 
     sendCanvasResult: function (dataUrl) {
-      this.broadcast({
-        type: 'peer-canvas-result',
-        drawnData: dataUrl
-      });
+      this.broadcast({ type: 'peer-canvas-result', drawnData: dataUrl });
     },
 
     startVideoCall: function (stream) {
       localStream = stream;
       if (!peer) return;
-
       connections.forEach((conn, peerId) => {
         if (conn.open) {
           initiateCallToPeer(peerId);
@@ -457,13 +503,16 @@
 
     broadcast: function (data) {
       connections.forEach((conn) => {
-        if (conn.open) {
-          conn.send(data);
+        if (conn && conn.open) {
+          try { conn.send(data); } catch (_) {}
         }
       });
     },
 
-    getPlayers: function () { return playersList; },
-    getIsHost:  function () { return isHost; }
+    getPlayers:  function () { return playersList; },
+    getIsHost:   function () { return isHost; },
+    getMyPeerId: function () { return myPeerId; }
   };
+
+  window.PYBMultiplayer = API;
 })();

@@ -324,8 +324,13 @@
     }
   };
 
+  // Called when the LOCAL player explicitly clears their own drawings on their side
+  window.clearLocalCanvas = function () {
+    localStrokes = [];
+  };
+
+  // Called when the REMOTE peer sends a clear signal — only clear what they painted on us
   window.clearCanvasRemote = function () {
-    localStrokes  = [];
     remoteStrokes = [];
   };
 

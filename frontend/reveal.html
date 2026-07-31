@@ -68,13 +68,13 @@
       <div class="results-frame-wrap">
         <!-- Top Frame: Image of what YOU painted on your friend -->
         <div class="reveal-img-container">
-          <img id="resultSnapshot1" src="assets/bg-room.png" alt="What you painted on your friend" />
+          <img id="resultSnapshot1" src="" alt="What you painted on your friend" style="background:#111;" />
           <div class="result-badge">YOU PAINTED THIS</div>
         </div>
 
         <!-- Bottom Frame: Image of what YOUR FRIEND painted on you -->
         <div class="reveal-img-container" style="border-color: #27ae60;">
-          <img id="resultSnapshot2" src="assets/bg-room.png" alt="What was painted on you" />
+          <img id="resultSnapshot2" src="" alt="What was painted on you" style="background:#111;" />
           <div class="result-badge" style="background: #27ae60;">PAINTED ON YOU</div>
         </div>
       </div>
@@ -100,7 +100,10 @@
       if (isHost && window.PYBMultiplayer) {
         window.PYBMultiplayer.triggerStartGame();
       } else if (isHost) {
-        window.location.href = `play.html?code=${roomCode}`;
+        const dur   = sessionStorage.getItem('durationMins') || '1';
+        const t     = Date.now();
+        sessionStorage.setItem('pyb_game_start_time', String(t));
+        window.location.href = `play.html?code=${roomCode}&duration=${dur}&t=${t}`;
       } else {
         alert('Waiting for the host to start next round!');
       }

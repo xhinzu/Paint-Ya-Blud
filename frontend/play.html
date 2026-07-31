@@ -219,15 +219,17 @@
   <script src="js/face-ar.js"></script>
   <script src="js/timer.js"></script>
   <script>
+    let localStream = null;
     let isMicOn = true;
 
     function toggleMic() {
-      const localVideo = document.getElementById('localVideo');
-      if (localVideo && localVideo.srcObject) {
-        const audioTracks = localVideo.srcObject.getAudioTracks();
+      // Mute/unmute the actual stream tracks sent over WebRTC
+      if (localStream) {
+        const audioTracks = localStream.getAudioTracks();
         if (audioTracks.length > 0) {
           isMicOn = !isMicOn;
           audioTracks[0].enabled = isMicOn;
+
           const label = document.getElementById('micLabel');
           const icon  = document.getElementById('micIcon');
           const btn   = document.getElementById('micToggleBtn');
@@ -242,24 +244,27 @@
 
     async function initWebcams() {
       const localVideo = document.getElementById('localVideo');
-      const peerVideo  = document.getElementById('peerVideo');
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
           audio: true
         });
+        localStream = stream;
         localVideo.srcObject = stream;
+        await localVideo.play().catch(() => {});
 
         if (window.PYBMultiplayer) {
           window.PYBMultiplayer.startVideoCall(stream);
         }
       } catch (err) {
         console.warn('[Play] Webcam not available, using mock feed:', err);
+        const peerVideo = document.getElementById('peerVideo');
         createMockFeed(localVideo, 'You');
         createMockFeed(peerVideo, 'Peer');
-        if (window.PYBMultiplayer) {
-          window.PYBMultiplayer.startVideoCall(peerVideo.srcObject);
+        localStream = localVideo.srcObject;
+        if (window.PYBMultiplayer && localStream) {
+          window.PYBMultiplayer.startVideoCall(localStream);
         }
       }
     }
