@@ -1,11 +1,10 @@
 /* Paint Ya Blud - Direct 1-on-1 WebRTC Peer-to-Peer (P2P) Engine
  *
- * Direct P2P Architecture (Same clean method as Cam-Slice):
+ * Direct P2P Architecture with TURN Fallback:
  * - Direct 1-on-1 P2P connection between Host and Joiner
- * - Standard Google STUN servers (stun.l.google.com:19302)
- * - Host binds deterministic PeerID: `pyb-room-[code]` (or `pyb-game-[code]`)
- * - Direct P2P DataChannels for drawing strokes
- * - Direct P2P MediaStreams for live video webcam feed and microphone voice chat
+ * - STUN + TURN Relay Servers (Metered.ca OpenRelay + Google STUN + Twilio STUN)
+ *   Ensures video & voice stream NAT/firewall traversal across different households & routers
+ * - Automatic Media Stream On-Demand Answering
  */
 
 (function () {
@@ -22,13 +21,29 @@
   let retryTimer   = null;
   let isConnected  = false;
 
-  // Direct P2P STUN Servers (Same as Cam-Slice)
-  const STUN_SERVERS = [
+  // Global ICE Servers (STUN + TURN for cross-household NAT/firewall traversal)
+  const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ];
 
   window.PYBMultiplayer = {
@@ -64,7 +79,7 @@
         }
 
         peer = new Peer(myTargetId, {
-          config: { iceServers: STUN_SERVERS },
+          config: { iceServers: ICE_SERVERS },
           debug: 1
         });
 
@@ -99,8 +114,20 @@
           this.setupDataConnection(conn);
         });
 
-        peer.on('call', (call) => {
+        peer.on('call', async (call) => {
           console.log(`[P2P] Incoming media call from ${call.peer}`);
+          mediaCalls.set(call.peer, call);
+
+          if (!localStream) {
+            try {
+              localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+              const localVideo = document.getElementById('localVideo');
+              if (localVideo) localVideo.srcObject = localStream;
+            } catch (err) {
+              console.warn('[P2P] MediaStream access failed:', err);
+            }
+          }
+
           if (localStream) {
             call.answer(localStream);
           } else {
@@ -108,7 +135,7 @@
           }
 
           call.on('stream', (remoteStream) => {
-            console.log('[P2P] Direct remote video & voice stream connected');
+            console.log('[P2P] Direct remote video & voice stream connected (incoming call)');
             const peerVideo = document.getElementById('peerVideo');
             if (peerVideo) peerVideo.srcObject = remoteStream;
           });
@@ -116,7 +143,6 @@
 
         peer.on('error', (err) => {
           console.warn('[P2P Error]', err.type, err.message);
-          // Auto-recovery if host ID busy
           if (err.type === 'unavailable-id' && isHost) {
             setTimeout(() => this.init(code, hostFlag, username, currentPhase), 1000);
           }
