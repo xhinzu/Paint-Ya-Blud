@@ -300,22 +300,18 @@
       const roomCode  = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
       const isHost    = sessionStorage.getItem('isHost') === 'true';
 
-      // Init multiplayer (game phase)
-      if (window.PYBMultiplayer) {
-        await window.PYBMultiplayer.init(roomCode, isHost, null, 'game');
-      }
+      // Fire webcam, multiplayer network connection, and AI face tracking simultaneously in parallel!
+      const webcamPromise      = initWebcams();
+      const multiplayerPromise = window.PYBMultiplayer ? window.PYBMultiplayer.init(roomCode, isHost, null, 'game') : Promise.resolve();
+      const arPromise          = window.initFaceAR('drawingCanvas', 'peerVideo', 'localDrawingCanvas');
 
-      // Start webcams
-      await initWebcams();
+      await Promise.all([webcamPromise, multiplayerPromise, arPromise]);
 
-      // Init AR face painting (loads MediaPipe, starts render loop)
-      await window.initFaceAR('drawingCanvas', 'peerVideo', 'localDrawingCanvas');
-
-      // Hide loading overlay once AR is ready
+      // Hide loading overlay once ready
       const overlay = document.getElementById('arLoadingOverlay');
       if (overlay) {
         overlay.classList.add('hidden');
-        setTimeout(() => overlay.remove(), 600);
+        setTimeout(() => overlay.remove(), 400);
       }
 
       // Countdown timer

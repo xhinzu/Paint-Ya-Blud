@@ -103,7 +103,7 @@
             };
 
             tryP2PConnect();
-            retryTimer = setInterval(tryP2PConnect, 1200);
+            retryTimer = setInterval(tryP2PConnect, 250);
           }
 
           resolve(true);
