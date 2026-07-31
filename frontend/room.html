@@ -96,18 +96,21 @@
     let isHost = false;
     let roomCode = '7608';
 
-    function drawSnowmanAvatar(canvasId, active) {
+    function drawPlayerAvatar(canvasId, playerConfig, active) {
       const c = document.getElementById(canvasId);
       if (!c) return;
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, 80, 80);
-      ctx.strokeStyle = active ? '#111' : '#aaa';
-      ctx.lineWidth = active ? 3.5 : 2.5;
-      ctx.fillStyle = active ? 'rgba(255,255,255,0.9)' : 'rgba(240,240,240,0.5)';
-      // Head
-      ctx.beginPath(); ctx.arc(40, 28, 20, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-      // Body
-      ctx.beginPath(); ctx.arc(40, 60, 16, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      if (active) {
+        drawStickMascot(c, playerConfig);
+      } else {
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.strokeStyle = '#aaa';
+        ctx.lineWidth = 2.5;
+        // Head outline
+        ctx.beginPath(); ctx.arc(40, 28, 20, 0, Math.PI * 2); ctx.stroke();
+        // Body outline
+        ctx.beginPath(); ctx.arc(40, 60, 16, 0, Math.PI * 2); ctx.stroke();
+      }
     }
 
     function copyCode() {
@@ -127,8 +130,10 @@
       const username = localStorage.getItem('pyb_username') || 'You';
       document.getElementById('nameSlot1').innerText = username;
 
-      // Draw all avatars
-      for (let i = 1; i <= 4; i++) drawSnowmanAvatar(`avatarCanvas${i}`, i === 1);
+      // Draw initial avatar for local player
+      const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
+      drawPlayerAvatar('avatarCanvas1', localChar, true);
+      for (let i = 2; i <= 4; i++) drawPlayerAvatar(`avatarCanvas${i}`, null, false);
 
       if (!isHost) {
         const btn = document.getElementById('startBtn');
@@ -165,12 +170,12 @@
         if (player) {
           nameEl.innerText = player.name + (player.isHost ? ' 👑' : '');
           nameEl.className = 'player-name';
-          drawSnowmanAvatar(`avatarCanvas${i}`, true);
+          drawPlayerAvatar(`avatarCanvas${i}`, player.character, true);
           if (dotEl) { dotEl.className = 'status-dot green'; }
         } else {
           nameEl.innerText = 'Waiting...';
           nameEl.className = 'player-name waiting';
-          drawSnowmanAvatar(`avatarCanvas${i}`, false);
+          drawPlayerAvatar(`avatarCanvas${i}`, null, false);
           if (dotEl) { dotEl.className = 'status-dot grey'; }
         }
       }

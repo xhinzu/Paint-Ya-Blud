@@ -53,7 +53,8 @@
           console.log(`[Multiplayer] Connected to Peer Cloud. PeerID: ${id}`);
 
           if (isHost) {
-            playersList = [{ id: myPeerId, name: localName, isHost: true }];
+            const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
+            playersList = [{ id: myPeerId, name: localName, isHost: true, character: localChar }];
             this.notifyLobbyUpdate();
           } else {
             // Join host room
@@ -108,10 +109,12 @@
         // Only the joiner sends a join-request to the host.
         // (When host receives a connection, conn.peer IS the joiner's ID — host doesn't need to announce itself.)
         if (!isHost) {
+          const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
           conn.send({
             type: 'join-request',
-            senderId: myPeerId,   // FIX: use OWN peer ID, not conn.peer (which is the remote/host ID)
-            name: localName
+            senderId: myPeerId,
+            name: localName,
+            character: localChar
           });
         }
       });
@@ -141,7 +144,9 @@
             const joinerId = conn.peer;
             const existing = playersList.find(p => p.id === joinerId);
             if (!existing) {
-              playersList.push({ id: joinerId, name: data.name || 'Player', isHost: false });
+              playersList.push({ id: joinerId, name: data.name || 'Player', isHost: false, character: data.character || {} });
+            } else {
+              existing.character = data.character || existing.character;
             }
             this.notifyLobbyUpdate();
 
