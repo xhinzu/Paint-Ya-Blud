@@ -1,0 +1,410 @@
+/* Paint Ya Blud - Mobile Responsive Overrides
+ * Handles all mobile breakpoints and touch-friendly sizing.
+ * Landscape lock UI is handled by #landscapeLockOverlay in mobile.js.
+ */
+
+/* ======================== */
+/*   LANDSCAPE LOCK OVERLAY */
+/* ======================== */
+
+#landscapeLockOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #111;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+#landscapeLockOverlay.visible {
+  display: flex;
+}
+
+.landscape-lock-icon {
+  font-size: 5rem;
+  animation: rotatePhone 1.6s ease-in-out infinite;
+}
+
+@keyframes rotatePhone {
+  0%  { transform: rotate(0deg); }
+  40% { transform: rotate(-90deg); }
+  60% { transform: rotate(-90deg); }
+  100%{ transform: rotate(0deg); }
+}
+
+.landscape-lock-text {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 2rem;
+  color: #fff;
+  text-align: center;
+  padding: 0 30px;
+  line-height: 1.4;
+}
+
+.landscape-lock-sub {
+  font-family: 'Caveat', cursive;
+  font-size: 1.5rem;
+  color: #aaa;
+  text-align: center;
+}
+
+/* ======================== */
+/*   TOUCH - HIT TARGETS    */
+/* ======================== */
+
+@media (pointer: coarse) {
+  /* Larger back button for fat thumbs */
+  .back-btn {
+    width: 60px;
+    height: 60px;
+    font-size: 1.8rem;
+    top: 12px;
+    left: 12px;
+  }
+
+  /* Larger color swatches */
+  .color-swatch {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Larger tool buttons */
+  .tool-btn {
+    padding: 10px 12px;
+    font-size: 1.4rem;
+    min-height: 44px;
+  }
+
+  /* Ensure all clickable elements have at least 44px hit target */
+  .blob-btn {
+    min-height: 44px;
+  }
+
+  .dur-box {
+    min-height: 44px;
+    padding: 8px 18px;
+    font-size: 1.5rem;
+  }
+}
+
+/* ======================== */
+/*  LANDSCAPE MOBILE (≤768) */
+/* ======================== */
+
+/* Landscape phone — the main game state */
+@media screen and (max-height: 520px) and (orientation: landscape) {
+
+  /* MAIN MENU */
+  .main-title-area {
+    top: 2%;
+    width: 55%;
+    left: 5%;
+    transform: none;
+    text-align: left;
+  }
+
+  .rainbow-title {
+    font-size: clamp(2rem, 6vw, 4rem);
+  }
+
+  .menu-buttons-stack {
+    top: 38%;
+    left: 5%;
+    gap: 10px;
+  }
+
+  .menu-buttons-stack .blob-btn {
+    font-size: 2rem;
+    padding: 0.4rem 2.2rem;
+    min-width: 180px;
+  }
+
+  .mascot-area {
+    width: 240px;
+    right: 0;
+    bottom: -10px;
+  }
+
+  /* ROOM LOBBY */
+  .room-layout {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 10px;
+  }
+
+  .room-panel {
+    min-width: unset;
+    gap: 8px;
+  }
+
+  .players-grid-2x2 {
+    gap: 8px 20px;
+  }
+
+  .player-avatar,
+  .player-avatar canvas {
+    width: 52px;
+    height: 52px;
+  }
+
+  .player-name {
+    font-size: 1rem;
+  }
+
+  .room-code-display {
+    font-size: 1.6rem;
+  }
+
+  .friends-side-panel {
+    min-width: 140px;
+    min-height: 160px;
+    padding: 10px 12px;
+  }
+
+  .friends-side-panel h3 {
+    font-size: 1.4rem;
+  }
+
+  /* CREATE ROOM */
+  .create-title-cloud {
+    font-size: 2rem;
+    padding: 6px 24px;
+  }
+
+  .chalk-blob {
+    padding: 1rem 1.5rem;
+  }
+
+  .option-label {
+    font-size: 1.2rem;
+    min-width: 120px;
+  }
+
+  .dur-box {
+    font-size: 1.1rem;
+    padding: 4px 10px;
+  }
+
+  /* REVEAL */
+  .reveal-layout {
+    gap: 14px;
+    padding: 10px;
+  }
+
+  .timeout-heart {
+    width: 120px;
+    height: 120px;
+    font-size: 2rem;
+  }
+
+  .reveal-img-container {
+    width: 200px !important;
+    height: 145px !important;
+  }
+
+  /* PLAY SCREEN - Landscape phone */
+  .play-sidebar {
+    width: 140px;
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .pip-cam-box {
+    width: 120px;
+    height: 90px;
+  }
+
+  .toolbar-blob {
+    width: 130px;
+    padding: 8px 6px;
+    gap: 6px;
+  }
+
+  .color-swatch {
+    width: 22px;
+    height: 22px;
+  }
+
+  .tool-btn {
+    font-size: 1rem;
+    padding: 5px 8px;
+  }
+
+  .timer-display {
+    font-size: 2rem !important;
+    top: 8px;
+    right: 150px;
+  }
+}
+
+/* ======================== */
+/*  SMALL SCREENS (≤480px)  */
+/* ======================== */
+
+@media screen and (max-width: 480px) {
+
+  /* MAIN MENU */
+  .main-title-area {
+    top: 3%;
+    width: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+
+  .rainbow-title {
+    font-size: clamp(2.5rem, 10vw, 4rem);
+  }
+
+  .menu-buttons-stack {
+    position: relative;
+    top: unset;
+    left: unset;
+    transform: none;
+    width: 100%;
+    align-items: center;
+    margin-top: 120px;
+    gap: 14px;
+  }
+
+  .menu-buttons-stack .blob-btn {
+    font-size: 2.2rem;
+    padding: 0.5rem 3rem;
+    min-width: 220px;
+    width: 80%;
+  }
+
+  /* Hide mascot on very small screens — not enough space */
+  .mascot-area {
+    display: none;
+  }
+
+  .app-viewport {
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 10%;
+  }
+
+  /* CREATE */
+  .create-panel {
+    width: 94vw;
+  }
+
+  .chalk-blob {
+    padding: 1.2rem 1.5rem;
+    width: 100%;
+  }
+
+  /* JOIN */
+  .join-blob-wrap {
+    min-width: unset !important;
+    width: 90vw;
+    padding: 2rem 1.5rem !important;
+  }
+
+  .code-digit-box {
+    width: 50px;
+    height: 60px;
+    font-size: 2.4rem;
+  }
+
+  /* ROOM */
+  .room-layout {
+    flex-direction: column;
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .room-panel {
+    min-width: unset;
+    width: 90vw;
+  }
+
+  .friends-side-panel {
+    width: 90vw;
+    min-height: unset;
+  }
+
+  /* REVEAL */
+  .reveal-layout {
+    flex-direction: column;
+    gap: 16px;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .reveal-img-container {
+    width: 85vw !important;
+    height: auto !important;
+    aspect-ratio: 4/3;
+  }
+
+  .timeout-heart {
+    width: 140px;
+    height: 140px;
+    font-size: 2.5rem;
+  }
+
+  .reveal-start-btn {
+    position: relative;
+    bottom: unset;
+    left: unset;
+    margin-top: 12px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* USER MENU */
+  .user-menu-layout {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .user-mascot-canvas {
+    width: 180px;
+    height: 220px;
+  }
+
+  .user-menu-item {
+    font-size: 1.6rem;
+    padding: 10px 0;
+  }
+}
+
+/* ======================== */
+/* MEDIUM MOBILE (481-768)  */
+/* ======================== */
+
+@media screen and (min-width: 481px) and (max-width: 768px) {
+
+  .rainbow-title {
+    font-size: clamp(3rem, 7vw, 5rem);
+  }
+
+  .menu-buttons-stack .blob-btn {
+    font-size: 2.6rem;
+  }
+
+  .mascot-area {
+    width: 320px;
+  }
+
+  .room-layout {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .room-panel {
+    min-width: 320px;
+  }
+
+  .friends-side-panel {
+    min-width: 160px;
+    min-height: 220px;
+  }
+}

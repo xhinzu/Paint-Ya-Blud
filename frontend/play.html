@@ -2,12 +2,54 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Paint Ya Blud - Play</title>
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/mobile.css">
   <style>
-    body, html { overflow: hidden; }
+    body, html { overflow: hidden; touch-action: none; }
+
+    /* Mobile landscape: compact sidebar with horizontal color row */
+    @media screen and (max-height: 520px) and (orientation: landscape) {
+      .play-sidebar {
+        width: 130px;
+        padding: 4px 4px;
+        gap: 4px;
+      }
+      .pip-cam-box {
+        width: 116px;
+        height: 82px;
+      }
+      .toolbar-blob {
+        width: 120px;
+        padding: 6px 5px;
+        gap: 4px;
+      }
+      .color-palette-row {
+        gap: 4px;
+        padding-bottom: 5px;
+      }
+      .color-swatch {
+        width: 20px;
+        height: 20px;
+      }
+      .tool-btn {
+        font-size: 0.9rem;
+        padding: 4px 6px;
+        gap: 4px;
+      }
+      .tool-btn svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+      .timer-display {
+        font-size: 1.8rem !important;
+        top: 5px !important;
+        right: 138px !important;
+      }
+    }
 
     .play-bg {
       background-image: url('css/bg_main_menu.png');
@@ -380,5 +422,6 @@
       });
     });
   </script>
+  <script src="js/mobile.js"></script>
 </body>
 </html>
