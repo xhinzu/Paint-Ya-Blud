@@ -261,7 +261,10 @@
             if (data.startTime)    sessionStorage.setItem('pyb_game_start_time', data.startTime);
             if (data.durationMins) sessionStorage.setItem('durationMins', data.durationMins);
           }
-          window.location.href = `play.html?code=${roomCode}`;
+          const targetUrl = (data && data.url)
+            ? data.url
+            : `play.html?code=${roomCode}&duration=${sessionStorage.getItem('durationMins') || 1}`;
+          window.location.href = targetUrl;
           break;
 
         case 'draw-stroke':
@@ -301,16 +304,20 @@
       const startTime    = Date.now();
       const durationMins = sessionStorage.getItem('durationMins') || '1';
       sessionStorage.setItem('pyb_game_start_time', startTime);
+
+      const gameUrl = `play.html?code=${roomCode}&duration=${durationMins}&t=${startTime}`;
+
       this.broadcast({
         type: 'start-game',
+        url: gameUrl,
         startTime: startTime,
         durationMins: durationMins
       });
 
-      // 150ms buffer to allow WebRTC packet to flush before page unload
+      // 120ms buffer to allow WebRTC packet to flush before page unload
       setTimeout(() => {
-        window.location.href = `play.html?code=${roomCode}`;
-      }, 150);
+        window.location.href = gameUrl;
+      }, 120);
     },
 
     sendStrokePoint: function (strokeData) {

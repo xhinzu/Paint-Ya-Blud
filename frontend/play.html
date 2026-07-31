@@ -245,7 +245,10 @@
       const peerVideo  = document.getElementById('peerVideo');
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
+          audio: true
+        });
         localVideo.srcObject = stream;
 
         if (window.PYBMultiplayer) {
@@ -296,9 +299,17 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomCode  = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
-      const isHost    = sessionStorage.getItem('isHost') === 'true';
+      const urlParams    = new URLSearchParams(window.location.search);
+      const roomCode     = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      const isHost       = sessionStorage.getItem('isHost') === 'true';
+
+      const durationMins = parseInt(urlParams.get('duration') || sessionStorage.getItem('durationMins') || '1', 10);
+      const startParam   = urlParams.get('t');
+
+      if (startParam) {
+        sessionStorage.setItem('pyb_game_start_time', startParam);
+      }
+      sessionStorage.setItem('durationMins', durationMins);
 
       // 1. Start local webcam & mic FIRST so localStream is active before network connects
       await initWebcams();
@@ -316,8 +327,7 @@
         setTimeout(() => overlay.remove(), 400);
       }
 
-      // Countdown timer
-      const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
+      // Countdown timer using exact wall-clock sync
       startCountdownTimer(durationMins * 60, 'timerDisplay', () => {
         // Capture screenshot at last second of timer
         try {
