@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - Main Menu</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-viewport bg-sunset-field">
+    <!-- SVG Wavy Painterly Hills & Flowers background overlay -->
+    <svg class="bg-landscape-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
+      <path d="M0,350 Q250,280 500,340 T1000,300 L1000,600 L0,600 Z" fill="#7fa85b"/>
+      <path d="M0,420 Q300,360 600,440 T1000,390 L1000,600 L0,600 Z" fill="#588b35"/>
+      <!-- Flowers -->
+      <circle cx="150" cy="480" r="15" fill="#fd79a8" />
+      <circle cx="180" cy="510" r="12" fill="#ffee75" />
+      <circle cx="220" cy="470" r="18" fill="#74b9ff" />
+      <circle cx="650" cy="520" r="14" fill="#fd79a8" />
+      <circle cx="700" cy="490" r="16" fill="#ffee75" />
+      <circle cx="750" cy="530" r="15" fill="#a29bfe" />
+    </svg>
+
+    <!-- Top Right USER Button -->
+    <a href="user-menu.html" class="user-icon-btn">
+      <span>USER</span>
+      <div class="user-icon-badge">✎</div>
+    </a>
+
+    <!-- Top Rainbow Title "Paint Ya Blud" -->
+    <div class="menu-title-wrapper">
+      <h1 class="rainbow-title">
+        <span>P</span><span>a</span><span>i</span><span>n</span><span>t</span>
+        <span>&nbsp;</span>
+        <span>Y</span><span>a</span>
+        <span>&nbsp;</span>
+        <span>B</span><span>l</span><span>u</span><span>d</span>
+      </h1>
+    </div>
+
+    <!-- Main Stacked Action Buttons (Left side) -->
+    <div class="main-menu-container">
+      <div class="menu-buttons-stack">
+        <a href="create.html" class="blob-btn btn-green">Create</a>
+        <a href="join.html" class="blob-btn btn-orange">Join</a>
+        <button onclick="alert('Thanks for playing Paint Ya Blud!')" class="blob-btn btn-red">Quit</button>
+      </div>
+    </div>
+
+    <!-- Mascot Stick Figure (Right side) -->
+    <div class="mascot-container">
+      <canvas id="mascotCanvas" width="320" height="380"></canvas>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      drawStickMascot('mascotCanvas', { headY: 120, headRadius: 65, lineWidth: 6 });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - Join Room</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-viewport bg-night-forest">
+    <!-- Back Button Top-Left -->
+    <a href="index.html" class="back-btn">Back</a>
+
+    <div class="blob-container" style="background: #ffeaa7; width: 420px; min-height: 400px; padding: 2.5rem 2rem;">
+      <h2 style="font-family: var(--font-title); font-size: 3rem; color: var(--color-red); text-shadow: 2px 2px 0px #111; filter: url(#sketchy-filter); margin-bottom: 1rem;">
+        Enter the code
+      </h2>
+
+      <!-- 4 Digit Input Boxes -->
+      <div class="code-inputs-row">
+        <input type="text" maxlength="1" class="code-digit-box" id="d1" autofocus onkeyup="moveFocus(this, 'd2')">
+        <input type="text" maxlength="1" class="code-digit-box" id="d2" onkeyup="moveFocus(this, 'd3')">
+        <input type="text" maxlength="1" class="code-digit-box" id="d3" onkeyup="moveFocus(this, 'd4')">
+        <input type="text" maxlength="1" class="code-digit-box" id="d4" onkeyup="moveFocus(this, null)">
+      </div>
+
+      <!-- Join Action Button -->
+      <button onclick="handleJoinRoom()" class="blob-btn btn-purple" style="font-size: 2.5rem; padding: 0.6rem 3rem; margin-top: 1.5rem;">
+        Join
+      </button>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script>
+    function moveFocus(current, nextId) {
+      if (current.value.length >= 1 && nextId) {
+        document.getElementById(nextId).focus();
+      }
+    }
+
+    function handleJoinRoom() {
+      const code = [
+        document.getElementById('d1').value,
+        document.getElementById('d2').value,
+        document.getElementById('d3').value,
+        document.getElementById('d4').value
+      ].join('');
+
+      if (code.length < 4) {
+        alert('Please enter a valid 4-digit code!');
+        return;
+      }
+
+      sessionStorage.setItem('roomCode', code);
+      window.location.href = `room.html?code=${code}`;
+    }
+  </script>
+</body>
+</html>

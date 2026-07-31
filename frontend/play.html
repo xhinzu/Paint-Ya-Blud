@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - Play</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-viewport bg-sunset-field">
+    <!-- Countdown Timer (Top Right) -->
+    <div class="countdown-timer-display" id="timerDisplay">00:57</div>
+
+    <div class="play-viewport">
+      <!-- Main Peer Video Feed + Canvas Drawing Surface Overlay -->
+      <div class="main-video-wrapper" id="mainVideoContainer">
+        <!-- Peer Webcam Stream or Simulated Video -->
+        <video id="peerVideo" class="main-video-element" autoplay playsinline muted></video>
+        
+        <!-- Interactive Drawing Canvas -->
+        <canvas id="drawingCanvas" class="drawing-canvas"></canvas>
+      </div>
+
+      <!-- Right Side Controls & Toolbar Strip -->
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 50;">
+        <!-- PIP Local Webcam Preview -->
+        <div class="pip-video-box">
+          <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+
+        <!-- Vertical Cloud-Blob Toolbar Strip -->
+        <div class="toolbar-strip">
+          <!-- Color Palette Dots -->
+          <div class="color-dots-row">
+            <div class="color-dot active" style="background: #2ecc71;" onclick="selectColor('#2ecc71', this)"></div>
+            <div class="color-dot" style="background: #f1c40f;" onclick="selectColor('#f1c40f', this)"></div>
+            <div class="color-dot" style="background: #3498db;" onclick="selectColor('#3498db', this)"></div>
+            <div class="color-dot" style="background: #e74c3c;" onclick="selectColor('#e74c3c', this)"></div>
+            <div class="color-dot" style="background: #e67e22;" onclick="selectColor('#e67e22', this)"></div>
+            <div class="color-dot" style="background: #111111;" onclick="selectColor('#111111', this)"></div>
+          </div>
+
+          <!-- Tools List -->
+          <button class="tool-item active" id="toolCrayon" onclick="selectTool('crayon')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+            crayon
+          </button>
+
+          <button class="tool-item" id="toolPen" onclick="selectTool('pen')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+            Pen
+          </button>
+
+          <button class="tool-item" id="toolRubber" onclick="selectTool('rubber')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2C14 1 16 1 17 2L21 6C22 7 22 9 21 10L12 19"/></svg>
+            Rubber
+          </button>
+
+          <button class="tool-item" id="toolPencil" onclick="selectTool('pencil')">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><line x1="18" y1="2" x2="22" y2="6"/><line x1="7.5" y1="20.5" x2="2" y2="22"/><line x1="2" y1="22" x2="3.5" y2="16.5"/></svg>
+            Pencil
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script src="js/crayon-brush.js"></script>
+  <script src="js/timer.js"></script>
+  <script>
+    // Initialize Webcams with mock video fallback for testing
+    async function initWebcams() {
+      const localVideo = document.getElementById('localVideo');
+      const peerVideo = document.getElementById('peerVideo');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = stream;
+        peerVideo.srcObject = stream; // Mirror locally for preview
+      } catch (err) {
+        console.warn('Webcam permission denied or not available, using video preview canvas fallback:', err);
+        // Fallback canvas video simulation
+        createMockVideoFeed(localVideo, 'You');
+        createMockVideoFeed(peerVideo, 'Peer');
+      }
+    }
+
+    function createMockVideoFeed(videoElem, label) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+
+      let frame = 0;
+      function animate() {
+        frame++;
+        ctx.fillStyle = '#2d3436';
+        ctx.fillRect(0, 0, 640, 480);
+        
+        // Draw head silhouette
+        ctx.fillStyle = '#dfe6e9';
+        ctx.beginPath();
+        ctx.arc(320, 200 + Math.sin(frame * 0.05) * 5, 100, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#111';
+        ctx.font = 'bold 36px "Permanent Marker", cursive';
+        ctx.fillText(`${label} Webcam Feed`, 180, 400);
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      const stream = canvas.captureStream(30);
+      videoElem.srcObject = stream;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initWebcams();
+      initCrayonCanvas('drawingCanvas');
+      startCountdownTimer(57, 'timerDisplay', () => {
+        // Capture snapshot & navigate to reveal screen
+        const canvas = document.getElementById('drawingCanvas');
+        sessionStorage.setItem('drawnCanvasData', canvas.toDataURL());
+        window.location.href = 'reveal.html';
+      });
+    });
+  </script>
+</body>
+</html>

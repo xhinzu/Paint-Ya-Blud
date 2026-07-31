@@ -1,0 +1,263 @@
+/* Paint Ya Blud - Hand-Drawn Crayon Design System */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Kalam:wght@400;700&family=Patrick+Hand&family=Permanent+Marker&display=swap');
+
+:root {
+  --font-title: 'Permanent Marker', 'Caveat', cursive, sans-serif;
+  --font-body: 'Patrick Hand', 'Kalam', cursive, sans-serif;
+  --font-alt: 'Caveat', cursive, sans-serif;
+
+  /* Crayon / Chalk Color Palette */
+  --color-green: #2ecc71;
+  --color-green-dark: #1b8a47;
+  --color-red: #e74c3c;
+  --color-red-dark: #a93226;
+  --color-orange: #e67e22;
+  --color-yellow: #f1c40f;
+  --color-blue: #3498db;
+  --color-purple: #9b59b6;
+  --color-pink: #fd79a8;
+  --color-black: #2c3e50;
+  --color-white: #ffffff;
+  --color-cream: #fdfefe;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-body);
+  overflow: hidden;
+  background-color: #1a1a1a;
+  color: var(--color-black);
+}
+
+/* App Window Viewport */
+.app-viewport {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Background Scene Containers */
+.bg-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Crayon Sketchy Filter Class */
+.sketchy-filter {
+  filter: url(#sketchy-filter);
+}
+
+/* Hand-Drawn Title Styling (Each letter multi-color) */
+.rainbow-title {
+  font-family: var(--font-title);
+  font-size: 4.5rem;
+  letter-spacing: 2px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.4), 
+               -2px -2px 0px rgba(255, 255, 255, 0.6);
+  filter: url(#sketchy-filter);
+}
+
+.rainbow-title span:nth-child(6n+1) { color: #2ecc71; }
+.rainbow-title span:nth-child(6n+2) { color: #e74c3c; }
+.rainbow-title span:nth-child(6n+3) { color: #f1c40f; }
+.rainbow-title span:nth-child(6n+4) { color: #3498db; }
+.rainbow-title span:nth-child(6n+5) { color: #e67e22; }
+.rainbow-title span:nth-child(6n+6) { color: #9b59b6; }
+
+/* Cloud Blob Panel Container */
+.blob-container {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 3.5rem;
+  background: #ffffff;
+  border-radius: 50% 40% 60% 45% / 40% 60% 35% 55%;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  position: relative;
+}
+
+/* Crayon scribbly border layer around blobs */
+.blob-container::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 6px solid #111;
+  border-radius: 48% 52% 58% 42% / 42% 58% 42% 58%;
+  pointer-events: none;
+  filter: url(#sketchy-filter);
+}
+
+.blob-container::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 4px dashed #333;
+  border-radius: 52% 48% 42% 58% / 58% 42% 58% 42%;
+  pointer-events: none;
+  opacity: 0.7;
+  filter: url(#sketchy-filter);
+}
+
+/* Wavy SVG Blob Button */
+.blob-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 3rem;
+  font-family: var(--font-title);
+  font-size: 2.4rem;
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  border-radius: 40px 15px 35px 20px / 20px 35px 15px 40px;
+  box-shadow: 3px 5px 0px rgba(0,0,0,0.8);
+  filter: url(#sketchy-filter);
+  text-decoration: none;
+}
+
+.blob-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 5px solid #111;
+  border-radius: 45px 18px 32px 25px / 22px 32px 18px 45px;
+  pointer-events: none;
+}
+
+.blob-btn:hover {
+  transform: scale(1.08) rotate(-2deg);
+}
+
+.blob-btn:active {
+  transform: scale(0.96) rotate(1deg);
+}
+
+.blob-btn.btn-green {
+  color: var(--color-green);
+  text-shadow: 2px 2px 0px #1b8a47;
+}
+
+.blob-btn.btn-orange {
+  color: var(--color-orange);
+  text-shadow: 2px 2px 0px #b35400;
+}
+
+.blob-btn.btn-red {
+  color: var(--color-red);
+  text-shadow: 2px 2px 0px #a93226;
+}
+
+.blob-btn.btn-purple {
+  color: var(--color-purple);
+  text-shadow: 2px 2px 0px #6c3483;
+}
+
+/* Circular Scribble Back Button */
+.back-btn {
+  position: absolute;
+  top: 25px;
+  left: 25px;
+  z-index: 100;
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+  background: var(--color-red);
+  border: 5px solid #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: var(--font-title);
+  font-size: 1.4rem;
+  cursor: pointer;
+  box-shadow: 3px 4px 0px #000;
+  filter: url(#sketchy-filter);
+  transition: transform 0.15s ease;
+  text-decoration: none;
+}
+
+.back-btn:hover {
+  transform: scale(1.1) rotate(-5deg);
+}
+
+/* User Pencil Icon Button (Top Right) */
+.user-icon-btn {
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-size: 2rem;
+  color: #111;
+  text-shadow: 1px 1px 0px #fff;
+  text-decoration: none;
+}
+
+.user-icon-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #111;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  border: 3px solid #fff;
+  filter: url(#sketchy-filter);
+  box-shadow: 2px 3px 0px rgba(0,0,0,0.5);
+}
+
+/* Mascot Stick Figure Canvas / SVG */
+.mascot-container {
+  position: absolute;
+  bottom: 0;
+  right: 5%;
+  z-index: 5;
+  width: 320px;
+  height: 380px;
+  pointer-events: none;
+  filter: url(#sketchy-filter);
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - Edit Your Stick</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-viewport bg-lavender-cloud">
+    <!-- Back Button Top-Left -->
+    <a href="user-menu.html" class="back-btn">Back</a>
+
+    <!-- Top Title -->
+    <div style="position: absolute; top: 5%; left: 50%; transform: translateX(-50%); z-index: 20;">
+      <h1 style="font-family: var(--font-title); font-size: 3.5rem; color: #111; text-shadow: 2px 2px 0px #fff; filter: url(#sketchy-filter);">
+        Edit Your Stick
+      </h1>
+    </div>
+
+    <!-- Character Customizer Container with Chevron Selector Arrows -->
+    <div class="character-editor-box" style="margin-top: 50px;">
+      <!-- Top Row Chevrons (Head/Hair) -->
+      <div class="chevron-arrow chevron-left-top" onclick="cycleOption('head', -1)">&lt;</div>
+      <div class="chevron-arrow chevron-right-top" onclick="cycleOption('head', 1)">&gt;</div>
+
+      <!-- Middle Row Chevrons (Face/Eyes) -->
+      <div class="chevron-arrow chevron-left-mid" onclick="cycleOption('face', -1)">&lt;</div>
+      <div class="chevron-arrow chevron-right-mid" onclick="cycleOption('face', 1)">&gt;</div>
+
+      <!-- Bottom Row Chevrons (Tie/Body) -->
+      <div class="chevron-arrow chevron-left-bot" onclick="cycleOption('tie', -1)">&lt;</div>
+      <div class="chevron-arrow chevron-right-bot" onclick="cycleOption('tie', 1)">&gt;</div>
+
+      <!-- Stick Figure Canvas -->
+      <canvas id="customizerCanvas" width="380" height="460"></canvas>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script>
+    const tieColors = ['#e74c3c', '#2ecc71', '#3498db', '#f1c40f', '#9b59b6'];
+    let tieIdx = 0;
+
+    function renderMascot() {
+      drawStickMascot('customizerCanvas', {
+        headY: 150,
+        headRadius: 90,
+        lineWidth: 7,
+        hasTie: true,
+        tieColor: tieColors[tieIdx]
+      });
+    }
+
+    function cycleOption(type, dir) {
+      if (type === 'tie') {
+        tieIdx = (tieIdx + dir + tieColors.length) % tieColors.length;
+      }
+      renderMascot();
+    }
+
+    document.addEventListener('DOMContentLoaded', renderMascot);
+  </script>
+</body>
+</html>

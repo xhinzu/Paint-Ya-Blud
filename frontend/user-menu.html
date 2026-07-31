@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - User Menu</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-viewport bg-sunflower-field">
+    <!-- Back Button Top-Left -->
+    <a href="index.html" class="back-btn">Back</a>
+
+    <!-- Top Title -->
+    <div style="position: absolute; top: 5%; left: 50%; transform: translateX(-50%); z-index: 20;">
+      <h1 style="font-family: var(--font-title); font-size: 3.8rem; color: #ffffff; text-shadow: 3px 3px 0px #111; filter: url(#sketchy-filter);">
+        User Menu
+      </h1>
+    </div>
+
+    <!-- Main Container Layout -->
+    <div style="display: flex; width: 85%; height: 75%; align-items: center; justify-content: space-around; z-index: 10; margin-top: 60px;">
+      <!-- Left Stick Figure Portrait -->
+      <div style="width: 320px; height: 380px;">
+        <canvas id="userMenuCanvas" width="320" height="380"></canvas>
+      </div>
+
+      <!-- Right White Cloud-Blob Menu -->
+      <div class="blob-container" style="width: 440px; min-height: 420px; padding: 2.5rem 3rem; align-items: flex-start; gap: 1.8rem;">
+        
+        <!-- Editable Username Row -->
+        <div style="font-family: var(--font-title); font-size: 2.4rem; color: #111; display: flex; align-items: center; justify-content: space-between; width: 100%;">
+          <div id="usernameDisplay" style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="enableUsernameEdit()">
+            <span id="usernameText">Player</span>
+            <span style="font-size: 1.8rem;">✎</span>
+          </div>
+          <div id="usernameEditBox" style="display: none; align-items: center; gap: 8px; width: 100%;">
+            <input type="text" id="usernameInput" style="font-family: var(--font-title); font-size: 1.8rem; border: none; border-bottom: 3px solid #111; outline: none; width: 70%; background: transparent;">
+            <button onclick="saveUsername()" class="blob-btn btn-green" style="font-size: 1.2rem; padding: 0.3rem 0.8rem;">Save</button>
+          </div>
+        </div>
+
+        <!-- Friends Link with Dynamic Count -->
+        <a href="friends.html" id="friendsCountLink" style="font-family: var(--font-title); font-size: 2.4rem; color: #111; text-decoration: none;">
+          friends [0]
+        </a>
+
+        <!-- Edit Stick Avatar Button -->
+        <a href="edit-stick.html" class="blob-btn btn-purple" style="font-size: 2.2rem; padding: 0.6rem 2.2rem; text-decoration: none;">
+          [Edit Your Stick]
+        </a>
+
+        <!-- Log Out Button -->
+        <button onclick="handleLogOut()" style="background: none; border: none; font-family: var(--font-title); font-size: 2.5rem; color: var(--color-red); text-shadow: 2px 2px 0px #111; cursor: pointer; filter: url(#sketchy-filter); margin-top: 10px;">
+          LOG OUT
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script>
+    function loadUserData() {
+      const savedUser = localStorage.getItem('pyb_username') || 'Blud';
+      document.getElementById('usernameText').innerText = savedUser;
+      document.getElementById('usernameInput').value = savedUser;
+
+      const friendsList = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
+      document.getElementById('friendsCountLink').innerText = `friends [${friendsList.length}]`;
+    }
+
+    function enableUsernameEdit() {
+      document.getElementById('usernameDisplay').style.display = 'none';
+      document.getElementById('usernameEditBox').style.display = 'flex';
+      const input = document.getElementById('usernameInput');
+      input.focus();
+      input.select();
+    }
+
+    function saveUsername() {
+      const input = document.getElementById('usernameInput');
+      const newName = input.value.trim() || 'Blud';
+      localStorage.setItem('pyb_username', newName);
+      document.getElementById('usernameText').innerText = newName;
+      document.getElementById('usernameEditBox').style.display = 'none';
+      document.getElementById('usernameDisplay').style.display = 'flex';
+    }
+
+    function handleLogOut() {
+      localStorage.removeItem('pyb_username');
+      window.location.href = 'index.html';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserData();
+      drawStickMascot('userMenuCanvas', { headY: 120, headRadius: 65, lineWidth: 6, hasTie: true });
+    });
+  </script>
+</body>
+</html>

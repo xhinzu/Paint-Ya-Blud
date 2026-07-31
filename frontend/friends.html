@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - Friends</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .friends-list-container {
+      width: 420px;
+      min-height: 480px;
+      background: #ffffff;
+      padding: 2.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .friends-list-content {
+      width: 100%;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 15px;
+      margin: 1.5rem 0;
+      position: relative;
+      overflow-y: auto;
+      max-height: 250px;
+    }
+
+    .friend-name-row {
+      font-family: var(--font-title);
+      font-size: 2.3rem;
+      color: #111;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 85%;
+      border-bottom: 2px dashed #eee;
+      padding-bottom: 5px;
+    }
+
+    .remove-friend-btn {
+      color: var(--color-red);
+      font-size: 1.5rem;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+    }
+
+    .empty-friends-msg {
+      font-family: var(--font-title);
+      font-size: 1.8rem;
+      color: #777;
+      text-align: center;
+      width: 100%;
+      margin-top: 40px;
+    }
+
+    /* Modal Popup */
+    .add-friend-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-cloud-box {
+      width: 380px;
+      background: #ffffff;
+      border: 8px solid var(--color-red);
+      border-radius: 40px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2rem;
+      filter: url(#sketchy-filter);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .add-friend-input {
+      width: 100%;
+      border: none;
+      border-bottom: 4px solid #111;
+      font-family: var(--font-title);
+      font-size: 1.8rem;
+      text-align: center;
+      outline: none;
+      padding: 5px;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-viewport bg-tree-leaves">
+    <!-- Back Button Top-Left -->
+    <a href="user-menu.html" class="back-btn">Back</a>
+
+    <!-- Main Friends List Cloud Blob -->
+    <div class="blob-container friends-list-container">
+      <h1 style="font-family: var(--font-title); font-size: 3.5rem; color: #111; filter: url(#sketchy-filter);">
+        Friends
+      </h1>
+
+      <div class="friends-list-content" id="friendsList">
+        <!-- Friends rendered dynamically -->
+      </div>
+
+      <!-- Add Friend Button -->
+      <button onclick="openModal()" class="blob-btn" style="color: var(--color-red); font-size: 2rem; border: 4px solid #111; padding: 0.4rem 2rem;">
+        Add Friend
+      </button>
+    </div>
+
+    <!-- Add Friend Modal Popup -->
+    <div class="add-friend-modal" id="addFriendModal">
+      <div class="modal-cloud-box">
+        <h2 style="font-family: var(--font-title); font-size: 2.8rem; color: #111;">ADD Friend</h2>
+        <input type="text" id="friendUsernameInput" placeholder="username of friend" class="add-friend-input">
+        
+        <div style="display: flex; gap: 15px;">
+          <button onclick="handleAddFriend()" class="blob-btn btn-green" style="font-size: 1.8rem; padding: 0.4rem 1.8rem;">
+            ADD +
+          </button>
+          <button onclick="closeModal()" class="blob-btn btn-red" style="font-size: 1.8rem; padding: 0.4rem 1.8rem;">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script>
+    function renderFriends() {
+      const friends = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
+      const container = document.getElementById('friendsList');
+      container.innerHTML = '';
+
+      if (friends.length === 0) {
+        container.innerHTML = '<div class="empty-friends-msg">No friends added yet!</div>';
+        return;
+      }
+
+      friends.forEach((name, idx) => {
+        const row = document.createElement('div');
+        row.className = 'friend-name-row';
+        row.innerHTML = `
+          <span>${name}</span>
+          <button class="remove-friend-btn" onclick="removeFriend(${idx})">✖</button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function removeFriend(idx) {
+      const friends = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
+      friends.splice(idx, 1);
+      localStorage.setItem('pyb_friends', JSON.stringify(friends));
+      renderFriends();
+    }
+
+    function openModal() {
+      document.getElementById('addFriendModal').style.display = 'flex';
+      document.getElementById('friendUsernameInput').focus();
+    }
+
+    function closeModal() {
+      document.getElementById('addFriendModal').style.display = 'none';
+    }
+
+    function handleAddFriend() {
+      const input = document.getElementById('friendUsernameInput');
+      const val = input.value.trim().toUpperCase();
+      if (!val) return;
+
+      const friends = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
+      if (!friends.includes(val)) {
+        friends.push(val);
+        localStorage.setItem('pyb_friends', JSON.stringify(friends));
+      }
+
+      input.value = '';
+      closeModal();
+      renderFriends();
+    }
+
+    document.addEventListener('DOMContentLoaded', renderFriends);
+  </script>
+</body>
+</html>

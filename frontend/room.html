@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paint Ya Blud - Your Room</title>
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .room-players-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px 40px;
+      margin: 1.5rem 0;
+    }
+
+    .player-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .player-avatar-head {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: 4px solid #111;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      filter: url(#sketchy-filter);
+    }
+
+    .player-avatar-head.waiting {
+      border: 4px dashed #888;
+      background: #fafafa;
+    }
+
+    .status-dots {
+      position: absolute;
+      right: -18px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #111;
+    }
+
+    .status-dot.green { background: var(--color-green); }
+    .status-dot.red { background: var(--color-red); }
+
+    .player-name-label {
+      font-family: var(--font-title);
+      font-size: 1.6rem;
+      margin-top: 8px;
+      color: #111;
+    }
+
+    .friends-drawer {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 220px;
+      background: #fff;
+      border: 5px solid #111;
+      border-radius: 30px;
+      padding: 15px;
+      filter: url(#sketchy-filter);
+      box-shadow: 4px 6px 0px #000;
+      z-index: 20;
+    }
+
+    .friend-invite-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 2px dashed #ccc;
+      font-family: var(--font-title);
+      font-size: 1.3rem;
+    }
+
+    .invite-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2px solid #111;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-viewport bg-waterfall-night">
+    <!-- Back Button Top-Left -->
+    <a href="index.html" class="back-btn">Back</a>
+
+    <!-- Main Room Panel -->
+    <div class="blob-container" style="width: 500px; min-height: 480px; padding: 2rem 3rem;">
+      <h1 style="font-family: var(--font-title); font-size: 3.2rem; color: var(--color-green); text-decoration: underline; filter: url(#sketchy-filter);">
+        Your Room
+      </h1>
+      
+      <div style="font-family: var(--font-title); font-size: 2.2rem; color: var(--color-red); margin-top: 5px;" id="roomCodeDisplay">
+        code: ----
+      </div>
+
+      <!-- 2x2 Players Grid -->
+      <div class="room-players-grid">
+        <!-- Slot 1: Local User -->
+        <div class="player-slot">
+          <div class="player-avatar-head">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="status-dots">
+              <div class="status-dot green"></div>
+            </div>
+          </div>
+          <div class="player-name-label" id="localPlayerName">You</div>
+        </div>
+
+        <!-- Slot 2: Peer 1 -->
+        <div class="player-slot" id="slot2">
+          <div class="player-avatar-head waiting">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="player-name-label" style="color: #888;">Waiting...</div>
+        </div>
+
+        <!-- Slot 3: Peer 2 -->
+        <div class="player-slot" id="slot3">
+          <div class="player-avatar-head waiting">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="player-name-label" style="color: #888;">Waiting...</div>
+        </div>
+
+        <!-- Slot 4: Peer 3 -->
+        <div class="player-slot" id="slot4">
+          <div class="player-avatar-head waiting">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="player-name-label" style="color: #888;">Waiting...</div>
+        </div>
+      </div>
+
+      <!-- Start Button -->
+      <a href="play.html" class="blob-btn btn-green" style="font-size: 2.4rem; padding: 0.5rem 3rem;">
+        START
+      </a>
+    </div>
+
+    <!-- Quick Friends Drawer on the Right -->
+    <div class="friends-drawer">
+      <h3 style="font-family: var(--font-title); font-size: 1.8rem; border-bottom: 3px solid #111; padding-bottom: 5px;">Friends</h3>
+      <div id="quickFriendsList">
+        <!-- Friends rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="js/blob-panel.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      document.getElementById('roomCodeDisplay').innerText = `code: ${code}`;
+
+      // Set user's chosen username
+      const username = localStorage.getItem('pyb_username') || 'You';
+      document.getElementById('localPlayerName').innerText = username;
+
+      // Render friends in side drawer
+      const friends = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
+      const container = document.getElementById('quickFriendsList');
+      container.innerHTML = '';
+
+      if (friends.length === 0) {
+        container.innerHTML = '<div style="font-family: var(--font-title); font-size: 1.2rem; color: #777; margin-top: 10px;">No friends to invite!</div>';
+      } else {
+        friends.forEach(friend => {
+          const item = document.createElement('div');
+          item.className = 'friend-invite-item';
+          item.innerHTML = `<span>${friend}</span><button class="invite-btn" onclick="this.innerText='✓'">+</button>`;
+          container.appendChild(item);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
