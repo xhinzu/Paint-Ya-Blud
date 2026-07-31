@@ -254,6 +254,9 @@
 
         case 'start-game':
           console.log('[P2P] Game started by host');
+          if (data && data.startTime) {
+            sessionStorage.setItem('pyb_game_start_time', data.startTime);
+          }
           window.location.href = `play.html?code=${roomCode}`;
           break;
 
@@ -289,7 +292,9 @@
 
     triggerStartGame: function () {
       if (!isHost) return;
-      this.broadcast({ type: 'start-game' });
+      const startTime = Date.now();
+      sessionStorage.setItem('pyb_game_start_time', startTime);
+      this.broadcast({ type: 'start-game', startTime: startTime });
       window.location.href = `play.html?code=${roomCode}`;
     },
 
