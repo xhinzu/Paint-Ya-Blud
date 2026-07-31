@@ -1,9 +1,10 @@
-/* Paint Ya Blud - Direct 2-Way WebRTC Peer-to-Peer (P2P) Engine
+/* Paint Ya Blud - Symmetric Dual-Channel WebRTC Engine
  *
- * Guaranteed 2-Way Media Streaming:
- * - Direct P2P Video + Audio with STUN + TURN Fallback
- * - Symmetric Media Calls: Both peers exchange video & audio streams cleanly
- * - Auto-recovery for race conditions between webcam access and connection open
+ * Direct P2P + EMQX MQTT Signaling Relay:
+ * - Host and Joiners generate unique Peer IDs (0% ID collision chance on PeerJS Cloud)
+ * - EMQX MQTT Global Broker (wss://broker.emqx.io:8084/mqtt) exchanges Peer IDs instantly
+ * - Direct P2P WebRTC DataChannels for drawing strokes
+ * - Direct P2P WebRTC MediaStreams with STUN + TURN Relay for 2-Way camera & voice chat
  */
 
 (function () {
@@ -17,8 +18,10 @@
 
   let localStream  = null;
   let playersList  = []; // [{ id, name, isHost, character }]
-  let retryTimer   = null;
-  let isConnected  = false;
+
+  let mqttClient      = null;
+  let pulseTimer      = null;
+  let isConnectedHost = false;
 
   // Global ICE Servers (STUN + TURN for cross-household NAT/firewall traversal)
   const ICE_SERVERS = [
@@ -58,6 +61,7 @@
 
   function initiateCallToPeer(targetPeerId) {
     if (!peer || !localStream || !targetPeerId) return;
+    if (mediaCalls.has(targetPeerId)) return;
 
     console.log(`[P2P] Initiating 2-way media call to ${targetPeerId}`);
     const call = peer.call(targetPeerId, localStream);
@@ -68,18 +72,115 @@
     });
   }
 
+  /* ---- MQTT Global Signaling Relay ---- */
+
+  function initMQTTSignaling(code, currentPhase) {
+    if (typeof Paho === 'undefined') {
+      console.warn('[MQTT] Paho library not loaded.');
+      return;
+    }
+
+    if (mqttClient) {
+      try { mqttClient.disconnect(); } catch (_) {}
+      mqttClient = null;
+    }
+
+    const clientId = `pyb_mqtt_${Math.floor(100000 + Math.random() * 900000)}`;
+    const topic    = `pyb/room/${code}/${currentPhase}`;
+
+    try {
+      mqttClient = new Paho.MQTT.Client('broker.emqx.io', 8084, clientId);
+
+      mqttClient.onMessageArrived = (message) => {
+        try {
+          const data = JSON.parse(message.payloadString);
+          handleSignalingMessage(data);
+        } catch (_) {}
+      };
+
+      mqttClient.onConnectionLost = (err) => {
+        if (err.errorCode !== 0) {
+          console.warn('[MQTT] Signaling connection lost, reconnecting...', err.errorMessage);
+          setTimeout(() => initMQTTSignaling(code, currentPhase), 2000);
+        }
+      };
+
+      mqttClient.connect({
+        useSSL: true,
+        timeout: 5,
+        onSuccess: () => {
+          console.log(`[MQTT] Connected to global signaling broker. Topic: ${topic}`);
+          mqttClient.subscribe(topic);
+
+          if (isHost && myPeerId) {
+            publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
+          } else {
+            publishMQTT({ type: 'find-host' });
+          }
+        },
+        onFailure: (err) => {
+          console.warn('[MQTT] Connection failed:', err);
+        }
+      });
+    } catch (e) {
+      console.warn('[MQTT] Init failed:', e);
+    }
+  }
+
+  function publishMQTT(payload) {
+    if (!mqttClient || !mqttClient.isConnected()) return;
+    try {
+      const topic = `pyb/room/${roomCode}/${phase}`;
+      const msgText = JSON.stringify({ ...payload, code: roomCode, phase: phase, sender: myPeerId });
+      const message = new Paho.MQTT.Message(msgText);
+      message.destinationName = topic;
+      mqttClient.send(message);
+    } catch (_) {}
+  }
+
+  function handleSignalingMessage(msg) {
+    if (!msg || msg.code !== roomCode || msg.phase !== phase || msg.sender === myPeerId) return;
+
+    if (msg.type === 'host-announce') {
+      if (!isHost && !isConnectedHost && msg.hostPeerId) {
+        console.log(`[Signaling] Discovered Host PeerID: ${msg.hostPeerId}. Connecting...`);
+        connectToHost(msg.hostPeerId);
+      }
+    } else if (msg.type === 'find-host') {
+      if (isHost && myPeerId) {
+        console.log(`[Signaling] Received find-host. Announcing PeerID: ${myPeerId}`);
+        publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
+      }
+    }
+  }
+
+  function connectToHost(targetPeerId) {
+    if (!peer || !targetPeerId || isConnectedHost) return;
+    const localName = localStorage.getItem('pyb_username') || 'Player';
+    const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
+
+    console.log(`[P2P] Connecting to Host (${targetPeerId})...`);
+    const conn = peer.connect(targetPeerId, {
+      metadata: { name: localName, character: localChar },
+      reliable: true
+    });
+    window.PYBMultiplayer.setupDataConnection(conn);
+  }
+
+  /* ---- Public API ---- */
+
   window.PYBMultiplayer = {
     init: function (code, hostFlag, username, currentPhase = 'lobby') {
-      roomCode    = code;
-      isHost      = hostFlag;
-      phase       = currentPhase;
-      isConnected = false;
+      roomCode        = code;
+      isHost          = hostFlag;
+      phase           = currentPhase;
+      isConnectedHost = false;
 
       const localName = username || localStorage.getItem('pyb_username') || 'Player';
       const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
-      // Clean up previous timers & sockets
-      if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+      // Cleanup old timers & peer instances
+      if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
       if (peer) {
         try { peer.destroy(); } catch (_) {}
         peer = null;
@@ -87,11 +188,9 @@
       connections.clear();
       mediaCalls.clear();
 
-      const prefix       = phase === 'game' ? 'pyb-game' : (phase === 'reveal' ? 'pyb-reveal' : 'pyb-room');
-      const targetHostId = `${prefix}-${roomCode}`;
-      const myTargetId   = isHost
-        ? targetHostId
-        : `${prefix}-user-${Math.floor(1000 + Math.random() * 9000)}`;
+      // Deterministic fallback ID + Random unique ID (prevents PeerJS unavailable-id collision)
+      const uniqueRandom = Math.floor(100000 + Math.random() * 900000);
+      const myTargetId   = `pyb-${phase}-${isHost ? 'host' : 'user'}-${uniqueRandom}`;
 
       return new Promise((resolve) => {
         if (!window.Peer) {
@@ -112,21 +211,26 @@
           if (isHost) {
             playersList = [{ id: myPeerId, name: localName, isHost: true, character: localChar }];
             this.notifyLobbyUpdate();
-          } else {
-            // Direct P2P connect to host with active retry until open
-            const tryP2PConnect = () => {
-              if (isConnected) return;
-              console.log(`[P2P] Connecting directly to Host: ${targetHostId}`);
-              const conn = peer.connect(targetHostId, {
-                metadata: { name: localName, character: localChar },
-                reliable: true
-              });
-              this.setupDataConnection(conn);
-            };
-
-            tryP2PConnect();
-            retryTimer = setInterval(tryP2PConnect, 250);
           }
+
+          // Fallback deterministic connect attempt (same Wi-Fi / same PC)
+          const fallbackHostId = `pyb-${phase}-host-${roomCode}`;
+          if (!isHost) {
+            connectToHost(fallbackHostId);
+          }
+
+          // Initialize EMQX MQTT global signaling relay
+          initMQTTSignaling(roomCode, phase);
+
+          // Fast signaling pulse timer
+          pulseTimer = setInterval(() => {
+            if (isHost && myPeerId) {
+              publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
+            } else if (!isHost && !isConnectedHost) {
+              connectToHost(fallbackHostId);
+              publishMQTT({ type: 'find-host' });
+            }
+          }, 300);
 
           resolve(true);
         });
@@ -161,9 +265,6 @@
 
         peer.on('error', (err) => {
           console.warn('[P2P Error]', err.type, err.message);
-          if (err.type === 'unavailable-id' && isHost) {
-            setTimeout(() => this.init(code, hostFlag, username, currentPhase), 1000);
-          }
         });
       });
     },
@@ -179,8 +280,8 @@
         const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
         if (!isHost) {
-          isConnected = true;
-          if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+          isConnectedHost = true;
+          if (pulseTimer) { clearInterval(pulseTimer); pulseTimer = null; }
 
           conn.send({
             type: 'join-request',
