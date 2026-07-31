@@ -21,12 +21,12 @@
 
       <!-- Two Stacked Photo Frame Results (Right) -->
       <div class="results-frames-column">
-        <!-- Player 1 Canvas Photo Frame -->
+        <!-- Player 1 / Peer Canvas Photo Frame -->
         <div class="result-photo-frame">
           <canvas id="resultCanvas1" width="320" height="240"></canvas>
         </div>
 
-        <!-- Player 2 Canvas Photo Frame -->
+        <!-- Player 2 / Local Canvas Photo Frame -->
         <div class="result-photo-frame">
           <canvas id="resultCanvas2" width="320" height="240"></canvas>
         </div>
@@ -39,58 +39,70 @@
     </a>
   </div>
 
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
+  <script src="js/multiplayer.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Draw result canvas 1 (Peer with devil horns)
-      const c1 = document.getElementById('resultCanvas1');
-      const ctx1 = c1.getContext('2d');
-      ctx1.fillStyle = '#222';
-      ctx1.fillRect(0, 0, 320, 240);
-      
-      // Face
-      ctx1.fillStyle = '#ffeaa7';
-      ctx1.beginPath();
-      ctx1.arc(160, 120, 60, 0, Math.PI * 2);
-      ctx1.fill();
+    function renderCanvasData(canvasId, dataUrl, defaultDraw) {
+      const c = document.getElementById(canvasId);
+      if (!c) return;
+      const ctx = c.getContext('2d');
 
-      // Red devil horns
-      ctx1.fillStyle = '#e74c3c';
-      ctx1.beginPath();
-      ctx1.moveTo(120, 75); ctx1.quadraticCurveTo(100, 30, 115, 30); ctx1.quadraticCurveTo(130, 50, 135, 70);
-      ctx1.fill();
-      ctx1.beginPath();
-      ctx1.moveTo(200, 75); ctx1.quadraticCurveTo(220, 30, 205, 30); ctx1.quadraticCurveTo(190, 50, 185, 70);
-      ctx1.fill();
-
-      // Red nose
-      ctx1.fillStyle = '#e74c3c';
-      ctx1.beginPath(); ctx1.arc(160, 125, 12, 0, Math.PI * 2); ctx1.fill();
-
-      // Draw result canvas 2 (Local user with clown hair)
-      const c2 = document.getElementById('resultCanvas2');
-      const ctx2 = c2.getContext('2d');
-      const drawnData = sessionStorage.getItem('drawnCanvasData');
-
-      if (drawnData) {
+      if (dataUrl) {
         const img = new Image();
-        img.onload = () => ctx2.drawImage(img, 0, 0, 320, 240);
-        img.src = drawnData;
-      } else {
+        img.onload = () => {
+          ctx.clearRect(0, 0, 320, 240);
+          ctx.drawImage(img, 0, 0, 320, 240);
+        };
+        img.src = dataUrl;
+      } else if (defaultDraw) {
+        defaultDraw(ctx);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      const isHost = sessionStorage.getItem('isHost') === 'true';
+
+      if (window.PYBMultiplayer) {
+        await window.PYBMultiplayer.init(roomCode, isHost);
+      }
+
+      window.onRemoteCanvasResult = function (remoteDataUrl) {
+        sessionStorage.setItem('remoteCanvasData', remoteDataUrl);
+        renderCanvasData('resultCanvas1', remoteDataUrl);
+      };
+
+      // Draw Canvas 1 (Peer Artwork)
+      const remoteData = sessionStorage.getItem('remoteCanvasData');
+      renderCanvasData('resultCanvas1', remoteData, (ctx1) => {
+        ctx1.fillStyle = '#222';
+        ctx1.fillRect(0, 0, 320, 240);
+        ctx1.fillStyle = '#ffeaa7';
+        ctx1.beginPath(); ctx1.arc(160, 120, 60, 0, Math.PI * 2); ctx1.fill();
+        ctx1.fillStyle = '#e74c3c';
+        ctx1.beginPath();
+        ctx1.moveTo(120, 75); ctx1.quadraticCurveTo(100, 30, 115, 30); ctx1.quadraticCurveTo(130, 50, 135, 70); ctx1.fill();
+        ctx1.beginPath();
+        ctx1.moveTo(200, 75); ctx1.quadraticCurveTo(220, 30, 205, 30); ctx1.quadraticCurveTo(190, 50, 185, 70); ctx1.fill();
+        ctx1.fillStyle = '#e74c3c';
+        ctx1.beginPath(); ctx1.arc(160, 125, 12, 0, Math.PI * 2); ctx1.fill();
+      });
+
+      // Draw Canvas 2 (Local Artwork)
+      const localData = sessionStorage.getItem('drawnCanvasData');
+      renderCanvasData('resultCanvas2', localData, (ctx2) => {
         ctx2.fillStyle = '#222';
         ctx2.fillRect(0, 0, 320, 240);
         ctx2.fillStyle = '#ffeaa7';
         ctx2.beginPath(); ctx2.arc(160, 120, 60, 0, Math.PI * 2); ctx2.fill();
-        // Orange clown wig
         ctx2.strokeStyle = '#e67e22';
         ctx2.lineWidth = 8;
-        ctx2.beginPath();
-        ctx2.arc(160, 110, 75, Math.PI * 0.8, Math.PI * 2.2);
-        ctx2.stroke();
-        // Red nose
+        ctx2.beginPath(); ctx2.arc(160, 110, 75, Math.PI * 0.8, Math.PI * 2.2); ctx2.stroke();
         ctx2.fillStyle = '#e74c3c';
         ctx2.beginPath(); ctx2.arc(160, 125, 14, 0, Math.PI * 2); ctx2.fill();
-      }
+      });
     });
   </script>
 </body>

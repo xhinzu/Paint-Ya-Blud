@@ -70,11 +70,12 @@
 
     function handleCreateRoom() {
       const playerCount = document.getElementById('playerSlider').value;
-      const roomCode = Math.floor(1000 + Math.random() * 9000);
+      const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
       sessionStorage.setItem('roomCode', roomCode);
       sessionStorage.setItem('maxPlayers', playerCount);
       sessionStorage.setItem('durationMins', selectedDuration);
-      window.location.href = `room.html?code=${roomCode}`;
+      sessionStorage.setItem('isHost', 'true');
+      window.location.href = `room.html?code=${roomCode}&host=true`;
     }
   </script>
 </body>

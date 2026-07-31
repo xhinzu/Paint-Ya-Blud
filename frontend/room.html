@@ -116,52 +116,52 @@
         Your Room
       </h1>
       
-      <div style="font-family: var(--font-title); font-size: 2.2rem; color: var(--color-red); margin-top: 5px;" id="roomCodeDisplay">
+      <div style="font-family: var(--font-title); font-size: 2.2rem; color: var(--color-red); margin-top: 5px; cursor: pointer;" id="roomCodeDisplay" title="Click to copy code">
         code: ----
       </div>
 
       <!-- 2x2 Players Grid -->
       <div class="room-players-grid">
-        <!-- Slot 1: Local User -->
-        <div class="player-slot">
+        <!-- Slot 1 -->
+        <div class="player-slot" id="slot1">
           <div class="player-avatar-head">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <div class="status-dots">
               <div class="status-dot green"></div>
             </div>
           </div>
-          <div class="player-name-label" id="localPlayerName">You</div>
+          <div class="player-name-label" id="nameSlot1">You</div>
         </div>
 
-        <!-- Slot 2: Peer 1 -->
+        <!-- Slot 2 -->
         <div class="player-slot" id="slot2">
           <div class="player-avatar-head waiting">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </div>
-          <div class="player-name-label" style="color: #888;">Waiting...</div>
+          <div class="player-name-label" id="nameSlot2" style="color: #888;">Waiting...</div>
         </div>
 
-        <!-- Slot 3: Peer 2 -->
+        <!-- Slot 3 -->
         <div class="player-slot" id="slot3">
           <div class="player-avatar-head waiting">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </div>
-          <div class="player-name-label" style="color: #888;">Waiting...</div>
+          <div class="player-name-label" id="nameSlot3" style="color: #888;">Waiting...</div>
         </div>
 
-        <!-- Slot 4: Peer 3 -->
+        <!-- Slot 4 -->
         <div class="player-slot" id="slot4">
           <div class="player-avatar-head waiting">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </div>
-          <div class="player-name-label" style="color: #888;">Waiting...</div>
+          <div class="player-name-label" id="nameSlot4" style="color: #888;">Waiting...</div>
         </div>
       </div>
 
-      <!-- Start Button -->
-      <a href="play.html" class="blob-btn btn-green" style="font-size: 2.4rem; padding: 0.5rem 3rem;">
+      <!-- Start Action Button -->
+      <button id="startBtn" onclick="handleStartClick()" class="blob-btn btn-green" style="font-size: 2.4rem; padding: 0.5rem 3rem;">
         START
-      </a>
+      </button>
     </div>
 
     <!-- Quick Friends Drawer on the Right -->
@@ -173,22 +173,44 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
+  <script src="js/multiplayer.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    let isHost = false;
+    let roomCode = '7608';
+
+    document.addEventListener('DOMContentLoaded', async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
-      document.getElementById('roomCodeDisplay').innerText = `code: ${code}`;
+      roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      isHost = urlParams.get('host') === 'true' || sessionStorage.getItem('isHost') === 'true';
 
-      // Set user's chosen username
+      const codeElem = document.getElementById('roomCodeDisplay');
+      codeElem.innerText = `code: ${roomCode}`;
+      codeElem.addEventListener('click', () => {
+        navigator.clipboard.writeText(roomCode);
+        alert(`Room Code ${roomCode} copied to clipboard! Share it with your friends globally.`);
+      });
+
       const username = localStorage.getItem('pyb_username') || 'You';
-      document.getElementById('localPlayerName').innerText = username;
 
-      // Render friends in side drawer
+      // Update Start button state based on host status
+      const startBtn = document.getElementById('startBtn');
+      if (!isHost) {
+        startBtn.innerText = 'WAITING FOR HOST...';
+        startBtn.style.opacity = '0.7';
+        startBtn.style.cursor = 'not-allowed';
+      }
+
+      // Initialize Multiplayer Real-time Engine
+      if (window.PYBMultiplayer) {
+        await window.PYBMultiplayer.init(roomCode, isHost, username);
+      }
+
+      // Render friends list
       const friends = JSON.parse(localStorage.getItem('pyb_friends') || '[]');
       const container = document.getElementById('quickFriendsList');
       container.innerHTML = '';
-
       if (friends.length === 0) {
         container.innerHTML = '<div style="font-family: var(--font-title); font-size: 1.2rem; color: #777; margin-top: 10px;">No friends to invite!</div>';
       } else {
@@ -200,6 +222,40 @@
         });
       }
     });
+
+    // Callback invoked when lobby player list updates
+    window.updateLobbyUI = function (players) {
+      for (let i = 1; i <= 4; i++) {
+        const nameLabel = document.getElementById(`nameSlot${i}`);
+        const slotElem = document.getElementById(`slot${i}`);
+        const headElem = slotElem ? slotElem.querySelector('.player-avatar-head') : null;
+
+        const player = players[i - 1];
+        if (player) {
+          nameLabel.innerText = player.name + (player.isHost ? ' (Host)' : '');
+          nameLabel.style.color = '#111';
+          if (headElem) {
+            headElem.classList.remove('waiting');
+          }
+        } else {
+          nameLabel.innerText = 'Waiting...';
+          nameLabel.style.color = '#888';
+          if (headElem) {
+            headElem.classList.add('waiting');
+          }
+        }
+      }
+    };
+
+    function handleStartClick() {
+      if (isHost && window.PYBMultiplayer) {
+        window.PYBMultiplayer.triggerStartGame();
+      } else if (isHost) {
+        window.location.href = `play.html?code=${roomCode}`;
+      } else {
+        alert('Waiting for the room host to start the game!');
+      }
+    }
   </script>
 </body>
 </html>

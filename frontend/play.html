@@ -10,7 +10,7 @@
 <body>
   <div class="app-viewport bg-sunset-field">
     <!-- Countdown Timer (Top Right) -->
-    <div class="countdown-timer-display" id="timerDisplay">00:57</div>
+    <div class="countdown-timer-display" id="timerDisplay">01:00</div>
 
     <div class="play-viewport">
       <!-- Main Peer Video Feed + Canvas Drawing Surface Overlay -->
@@ -66,22 +66,27 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
+  <script src="js/multiplayer.js"></script>
   <script src="js/crayon-brush.js"></script>
   <script src="js/timer.js"></script>
   <script>
-    // Initialize Webcams with mock video fallback for testing
+    let activeStream = null;
+
     async function initWebcams() {
       const localVideo = document.getElementById('localVideo');
       const peerVideo = document.getElementById('peerVideo');
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = stream;
-        peerVideo.srcObject = stream; // Mirror locally for preview
+        activeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = activeStream;
+
+        if (window.PYBMultiplayer) {
+          window.PYBMultiplayer.startVideoCall(activeStream);
+        }
       } catch (err) {
-        console.warn('Webcam permission denied or not available, using video preview canvas fallback:', err);
-        // Fallback canvas video simulation
+        console.warn('Webcam permission denied or not available, using fallback:', err);
         createMockVideoFeed(localVideo, 'You');
         createMockVideoFeed(peerVideo, 'Peer');
       }
@@ -99,7 +104,6 @@
         ctx.fillStyle = '#2d3436';
         ctx.fillRect(0, 0, 640, 480);
         
-        // Draw head silhouette
         ctx.fillStyle = '#dfe6e9';
         ctx.beginPath();
         ctx.arc(320, 200 + Math.sin(frame * 0.05) * 5, 100, 0, Math.PI * 2);
@@ -115,16 +119,38 @@
 
       const stream = canvas.captureStream(30);
       videoElem.srcObject = stream;
+      if (label === 'You' && window.PYBMultiplayer) {
+        window.PYBMultiplayer.startVideoCall(stream);
+      }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      initWebcams();
+    document.addEventListener('DOMContentLoaded', async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      const isHost = sessionStorage.getItem('isHost') === 'true';
+
+      if (window.PYBMultiplayer) {
+        await window.PYBMultiplayer.init(roomCode, isHost);
+      }
+
+      await initWebcams();
       initCrayonCanvas('drawingCanvas');
-      startCountdownTimer(57, 'timerDisplay', () => {
-        // Capture snapshot & navigate to reveal screen
+
+      const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
+      const durationSeconds = durationMins * 60;
+
+      startCountdownTimer(durationSeconds, 'timerDisplay', () => {
         const canvas = document.getElementById('drawingCanvas');
-        sessionStorage.setItem('drawnCanvasData', canvas.toDataURL());
-        window.location.href = 'reveal.html';
+        const drawnData = canvas ? canvas.toDataURL() : '';
+        sessionStorage.setItem('drawnCanvasData', drawnData);
+
+        if (window.PYBMultiplayer) {
+          window.PYBMultiplayer.sendCanvasResult(drawnData);
+        }
+
+        setTimeout(() => {
+          window.location.href = 'reveal.html';
+        }, 500);
       });
     });
   </script>

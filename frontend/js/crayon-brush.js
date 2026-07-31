@@ -1,4 +1,4 @@
-/* Paint Ya Blud - Textured Crayon & Brush Engine */
+/* Paint Ya Blud - Textured Crayon & Brush Engine with Multiplayer Stroke Sync */
 
 (function () {
   let canvas, ctx;
@@ -84,7 +84,7 @@
     const pos = getPos(e);
     lastX = pos.x;
     lastY = pos.y;
-    drawStrokePoint(pos.x, pos.y);
+    drawStrokePoint(pos.x, pos.y, false);
   }
 
   function draw(e) {
@@ -107,18 +107,16 @@
     for (let i = 0; i < dist; i += step) {
       const currX = x1 + Math.cos(angle) * i;
       const currY = y1 + Math.sin(angle) * i;
-      drawStrokePoint(currX, currY);
+      drawStrokePoint(currX, currY, false);
     }
   }
 
-  function drawStrokePoint(x, y) {
+  function drawStrokePoint(x, y, isRemote = false) {
+    if (!ctx || !canvas) return;
+
     if (currentTool === 'rubber') {
       ctx.clearRect(x - brushSize / 2, y - brushSize / 2, brushSize, brushSize);
-      return;
-    }
-
-    if (currentTool === 'crayon') {
-      // Chalk / Crayon texture stamp effect
+    } else if (currentTool === 'crayon') {
       ctx.fillStyle = currentColor;
       const density = 25;
       for (let i = 0; i < density; i++) {
@@ -132,7 +130,6 @@
       }
       ctx.globalAlpha = 1.0;
     } else {
-      // Smooth / Pen / Pencil Stroke
       ctx.fillStyle = currentColor;
       ctx.strokeStyle = currentColor;
       ctx.lineWidth = brushSize;
@@ -141,5 +138,45 @@
       ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // Broadcast stroke data to peers if local
+    if (!isRemote && window.PYBMultiplayer) {
+      const strokeData = {
+        nx: x / canvas.width,
+        ny: y / canvas.height,
+        tool: currentTool,
+        color: currentColor,
+        size: brushSize
+      };
+      window.PYBMultiplayer.sendStrokePoint(strokeData);
+    }
   }
+
+  // Handle incoming remote stroke from peer
+  window.renderRemoteStrokePoint = function (strokeData) {
+    if (!canvas || !ctx || !strokeData) return;
+
+    const savedTool = currentTool;
+    const savedColor = currentColor;
+    const savedSize = brushSize;
+
+    currentTool = strokeData.tool || 'crayon';
+    currentColor = strokeData.color || '#2ecc71';
+    brushSize = strokeData.size || 14;
+
+    const x = strokeData.nx * canvas.width;
+    const y = strokeData.ny * canvas.height;
+
+    drawStrokePoint(x, y, true);
+
+    currentTool = savedTool;
+    currentColor = savedColor;
+    brushSize = savedSize;
+  };
+
+  window.clearCanvasRemote = function () {
+    if (ctx && canvas) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
 })();
