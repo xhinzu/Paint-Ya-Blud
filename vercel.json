@@ -1,7 +1,4 @@
 {
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/", "destination": "/frontend/index.html" },
-    { "source": "/:path*", "destination": "/frontend/:path*" }
-  ]
+  "outputDirectory": "frontend",
+  "cleanUrls": true
 }
