@@ -1,10 +1,11 @@
-/* Paint Ya Blud - Global WebRTC Engine with EMQX MQTT Cross-Household Signaling
+/* Paint Ya Blud - Direct 1-on-1 WebRTC Peer-to-Peer (P2P) Engine
  *
- * Architecture:
- * - Signaling: Paho MQTT over WSS (wss://broker.emqx.io:8084/mqtt)
- *   Global high-availability broker used worldwide to exchange PeerIDs between households
- * - WebRTC Transport: PeerJS with Google STUN + Metered.ca OpenRelay TURN servers
- *   Ensures 100% NAT/firewall traversal across different ISPs, home routers, and cellular networks
+ * Direct P2P Architecture (Same clean method as Cam-Slice):
+ * - Direct 1-on-1 P2P connection between Host and Joiner
+ * - Standard Google STUN servers (stun.l.google.com:19302)
+ * - Host binds deterministic PeerID: `pyb-room-[code]` (or `pyb-game-[code]`)
+ * - Direct P2P DataChannels for drawing strokes
+ * - Direct P2P MediaStreams for live video webcam feed and microphone voice chat
  */
 
 (function () {
@@ -18,147 +19,30 @@
 
   let localStream  = null;
   let playersList  = []; // [{ id, name, isHost, character }]
+  let retryTimer   = null;
+  let isConnected  = false;
 
-  let mqttClient      = null;
-  let announceTimer   = null;
-  let isConnectedHost = false;
-  let discoveredHost  = null;
-
-  // Global ICE Servers (STUN + TURN for cross-household NAT/firewall traversal)
-  const ICE_SERVERS = [
+  // Direct P2P STUN Servers (Same as Cam-Slice)
+  const STUN_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    { urls: 'stun:global.stun.twilio.com:3478' },
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
+    { urls: 'stun:stun4.l.google.com:19302' }
   ];
-
-  /* ---- MQTT Global Signaling Relay ---- */
-
-  function initMQTTSignaling(code, currentPhase) {
-    if (typeof Paho === 'undefined') {
-      console.warn('[MQTT] Paho library not loaded. Falling back to local signaling.');
-      return;
-    }
-
-    if (mqttClient) {
-      try { mqttClient.disconnect(); } catch (_) {}
-      mqttClient = null;
-    }
-
-    const clientId = `pyb_mqtt_${Math.floor(100000 + Math.random() * 900000)}`;
-    const topic    = `pyb/room/${code}/${currentPhase}`;
-
-    try {
-      mqttClient = new Paho.MQTT.Client('broker.emqx.io', 8084, clientId);
-
-      mqttClient.onMessageArrived = (message) => {
-        try {
-          const data = JSON.parse(message.payloadString);
-          handleSignalingMessage(data);
-        } catch (_) {}
-      };
-
-      mqttClient.onConnectionLost = (err) => {
-        if (err.errorCode !== 0) {
-          console.warn('[MQTT] Signaling connection lost, reconnecting...', err.errorMessage);
-          setTimeout(() => initMQTTSignaling(code, currentPhase), 2000);
-        }
-      };
-
-      mqttClient.connect({
-        useSSL: true,
-        timeout: 5,
-        onSuccess: () => {
-          console.log(`[MQTT] Connected to global signaling broker. Topic: ${topic}`);
-          mqttClient.subscribe(topic);
-
-          if (isHost && myPeerId) {
-            publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
-          } else {
-            publishMQTT({ type: 'find-host' });
-          }
-        },
-        onFailure: (err) => {
-          console.warn('[MQTT] Connection failed:', err);
-        }
-      });
-    } catch (e) {
-      console.warn('[MQTT] Init failed:', e);
-    }
-  }
-
-  function publishMQTT(payload) {
-    if (!mqttClient || !mqttClient.isConnected()) return;
-    try {
-      const topic = `pyb/room/${roomCode}/${phase}`;
-      const msgText = JSON.stringify({ ...payload, code: roomCode, phase: phase, sender: myPeerId });
-      const message = new Paho.MQTT.Message(msgText);
-      message.destinationName = topic;
-      mqttClient.send(message);
-    } catch (_) {}
-  }
-
-  function handleSignalingMessage(msg) {
-    if (!msg || msg.code !== roomCode || msg.phase !== phase || msg.sender === myPeerId) return;
-
-    if (msg.type === 'host-announce') {
-      if (!isHost && !isConnectedHost && msg.hostPeerId) {
-        discoveredHost = msg.hostPeerId;
-        console.log(`[Signaling] Discovered Host PeerID: ${discoveredHost}. Connecting WebRTC...`);
-        connectToHost(discoveredHost);
-      }
-    } else if (msg.type === 'find-host') {
-      if (isHost && myPeerId) {
-        console.log(`[Signaling] Received find-host. Announcing PeerID: ${myPeerId}`);
-        publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
-      }
-    }
-  }
-
-  function connectToHost(targetPeerId) {
-    if (!peer || !targetPeerId || isConnectedHost) return;
-    const localName = localStorage.getItem('pyb_username') || 'Player';
-    const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
-
-    const conn = peer.connect(targetPeerId, {
-      metadata: { name: localName, character: localChar },
-      reliable: true
-    });
-    window.PYBMultiplayer.setupDataConnection(conn);
-  }
-
-  /* ---- Public API ---- */
 
   window.PYBMultiplayer = {
     init: function (code, hostFlag, username, currentPhase = 'lobby') {
-      roomCode = code;
-      isHost   = hostFlag;
-      phase    = currentPhase;
-      isConnectedHost = false;
-      discoveredHost  = null;
+      roomCode    = code;
+      isHost      = hostFlag;
+      phase       = currentPhase;
+      isConnected = false;
 
       const localName = username || localStorage.getItem('pyb_username') || 'Player';
       const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
-      // Cleanup old timers & peer instances
-      if (announceTimer) { clearInterval(announceTimer); announceTimer = null; }
+      // Clean up previous timers & sockets
+      if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
       if (peer) {
         try { peer.destroy(); } catch (_) {}
         peer = null;
@@ -166,7 +50,11 @@
       connections.clear();
       mediaCalls.clear();
 
-      const myTargetId = `pyb-${phase}-${isHost ? 'host' : 'user'}-${Math.floor(100000 + Math.random() * 900000)}`;
+      const prefix       = phase === 'game' ? 'pyb-game' : (phase === 'reveal' ? 'pyb-reveal' : 'pyb-room');
+      const targetHostId = `${prefix}-${roomCode}`;
+      const myTargetId   = isHost
+        ? targetHostId
+        : `${prefix}-user-${Math.floor(1000 + Math.random() * 9000)}`;
 
       return new Promise((resolve) => {
         if (!window.Peer) {
@@ -176,45 +64,43 @@
         }
 
         peer = new Peer(myTargetId, {
-          config: { iceServers: ICE_SERVERS },
+          config: { iceServers: STUN_SERVERS },
           debug: 1
         });
 
         peer.on('open', (id) => {
           myPeerId = id;
-          console.log(`[Multiplayer] Peer ready (${phase}). My PeerID: ${id}`);
+          console.log(`[P2P] Peer ready (${phase}). My PeerID: ${id}`);
 
           if (isHost) {
             playersList = [{ id: myPeerId, name: localName, isHost: true, character: localChar }];
             this.notifyLobbyUpdate();
+          } else {
+            // Direct P2P connect to host with active retry until open
+            const tryP2PConnect = () => {
+              if (isConnected) return;
+              console.log(`[P2P] Connecting directly to Host: ${targetHostId}`);
+              const conn = peer.connect(targetHostId, {
+                metadata: { name: localName, character: localChar },
+                reliable: true
+              });
+              this.setupDataConnection(conn);
+            };
+
+            tryP2PConnect();
+            retryTimer = setInterval(tryP2PConnect, 1200);
           }
-
-          // Initialize EMQX MQTT global signaling relay
-          initMQTTSignaling(roomCode, phase);
-
-          // Active pulse timer
-          announceTimer = setInterval(() => {
-            if (isHost && myPeerId) {
-              publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
-            } else if (!isHost && !isConnectedHost) {
-              if (discoveredHost) {
-                connectToHost(discoveredHost);
-              } else {
-                publishMQTT({ type: 'find-host' });
-              }
-            }
-          }, 1200);
 
           resolve(true);
         });
 
         peer.on('connection', (conn) => {
-          console.log(`[Multiplayer] Incoming WebRTC connection from ${conn.peer}`);
+          console.log(`[P2P] Incoming direct connection from ${conn.peer}`);
           this.setupDataConnection(conn);
         });
 
         peer.on('call', (call) => {
-          console.log(`[Multiplayer] Incoming media call from ${call.peer}`);
+          console.log(`[P2P] Incoming media call from ${call.peer}`);
           if (localStream) {
             call.answer(localStream);
           } else {
@@ -222,14 +108,18 @@
           }
 
           call.on('stream', (remoteStream) => {
-            console.log('[Multiplayer] Attached remote video stream');
+            console.log('[P2P] Direct remote video & voice stream connected');
             const peerVideo = document.getElementById('peerVideo');
             if (peerVideo) peerVideo.srcObject = remoteStream;
           });
         });
 
         peer.on('error', (err) => {
-          console.warn('[Multiplayer PeerJS Error]', err.type, err.message);
+          console.warn('[P2P Error]', err.type, err.message);
+          // Auto-recovery if host ID busy
+          if (err.type === 'unavailable-id' && isHost) {
+            setTimeout(() => this.init(code, hostFlag, username, currentPhase), 1000);
+          }
         });
       });
     },
@@ -238,14 +128,15 @@
       if (!conn) return;
 
       conn.on('open', () => {
-        console.log(`[Multiplayer] WebRTC DataChannel OPEN with ${conn.peer}`);
+        console.log(`[P2P] Direct DataChannel OPEN with ${conn.peer}`);
         connections.set(conn.peer, conn);
 
         const localName = localStorage.getItem('pyb_username') || 'Player';
         const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
         if (!isHost) {
-          isConnectedHost = true;
+          isConnected = true;
+          if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
 
           conn.send({
             type: 'join-request',
@@ -255,14 +146,14 @@
           });
         }
 
-        // Auto-initiate media call if webcam stream is active
+        // Trigger direct 1-on-1 P2P media call if webcam stream is active
         if (localStream && peer && !mediaCalls.has(conn.peer)) {
-          console.log(`[Multiplayer] Auto-calling peer ${conn.peer} on DataChannel open`);
+          console.log(`[P2P] Calling ${conn.peer} for direct 1-on-1 video/voice stream`);
           const call = peer.call(conn.peer, localStream);
           mediaCalls.set(conn.peer, call);
 
           call.on('stream', (remoteStream) => {
-            console.log('[Multiplayer] Attached remote video stream from auto-call');
+            console.log('[P2P] Direct video & voice stream connected');
             const peerVideo = document.getElementById('peerVideo');
             if (peerVideo) peerVideo.srcObject = remoteStream;
           });
@@ -274,12 +165,12 @@
       });
 
       conn.on('error', (err) => {
-        console.warn('[Multiplayer] DataChannel error:', err);
+        console.warn('[P2P] Connection error:', err);
         connections.delete(conn.peer);
       });
 
       conn.on('close', () => {
-        console.log(`[Multiplayer] DataChannel CLOSED with ${conn.peer}`);
+        console.log(`[P2P] Connection CLOSED with ${conn.peer}`);
         connections.delete(conn.peer);
         if (isHost) {
           playersList = playersList.filter(p => p.id !== conn.peer);
@@ -308,7 +199,6 @@
             }
             this.notifyLobbyUpdate();
 
-            // Send full lobby state back to joiner
             if (conn.open) {
               conn.send({ type: 'lobby-update', players: playersList });
             }
@@ -323,7 +213,7 @@
           break;
 
         case 'start-game':
-          console.log('[Multiplayer] Game started by host');
+          console.log('[P2P] Game started by host');
           window.location.href = `play.html?code=${roomCode}`;
           break;
 
@@ -386,15 +276,17 @@
       if (!peer) return;
 
       connections.forEach((conn, peerId) => {
-        console.log(`[Multiplayer] Initiating video call to ${peerId}`);
-        const call = peer.call(peerId, localStream);
-        mediaCalls.set(peerId, call);
+        if (conn.open && !mediaCalls.has(peerId)) {
+          console.log(`[P2P] Direct video call to ${peerId}`);
+          const call = peer.call(peerId, localStream);
+          mediaCalls.set(peerId, call);
 
-        call.on('stream', (remoteStream) => {
-          console.log('[Multiplayer] Received remote video stream');
-          const peerVideo = document.getElementById('peerVideo');
-          if (peerVideo) peerVideo.srcObject = remoteStream;
-        });
+          call.on('stream', (remoteStream) => {
+            console.log('[P2P] Attached remote video stream');
+            const peerVideo = document.getElementById('peerVideo');
+            if (peerVideo) peerVideo.srcObject = remoteStream;
+          });
+        }
       });
     },
 
