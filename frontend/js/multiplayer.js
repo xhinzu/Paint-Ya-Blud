@@ -254,6 +254,19 @@
             character: localChar
           });
         }
+
+        // Auto-initiate media call if webcam stream is active
+        if (localStream && peer && !mediaCalls.has(conn.peer)) {
+          console.log(`[Multiplayer] Auto-calling peer ${conn.peer} on DataChannel open`);
+          const call = peer.call(conn.peer, localStream);
+          mediaCalls.set(conn.peer, call);
+
+          call.on('stream', (remoteStream) => {
+            console.log('[Multiplayer] Attached remote video stream from auto-call');
+            const peerVideo = document.getElementById('peerVideo');
+            if (peerVideo) peerVideo.srcObject = remoteStream;
+          });
+        }
       });
 
       conn.on('data', (data) => {
