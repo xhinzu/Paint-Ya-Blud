@@ -317,24 +317,48 @@
       // Countdown timer
       const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
       startCountdownTimer(durationMins * 60, 'timerDisplay', () => {
-        // Save separated local and remote AR strokes for reveal screen
-        if (window.getLocalARStrokes) {
-          const localS  = window.getLocalARStrokes();
-          const remoteS = window.getRemoteARStrokes();
-          sessionStorage.setItem('pyb_local_ar_strokes',  JSON.stringify(localS));
-          sessionStorage.setItem('pyb_remote_ar_strokes', JSON.stringify(remoteS));
+        // Capture screenshot at last second of timer
+        try {
+          const peerVideo     = document.getElementById('peerVideo');
+          const drawingCanvas = document.getElementById('drawingCanvas');
+          const c1   = document.createElement('canvas');
+          c1.width   = 640;
+          c1.height  = 480;
+          const ctx1 = c1.getContext('2d');
+
+          if (peerVideo && peerVideo.readyState >= 2) {
+            ctx1.drawImage(peerVideo, 0, 0, 640, 480);
+          } else {
+            ctx1.fillStyle = '#111';
+            ctx1.fillRect(0, 0, 640, 480);
+          }
+          if (drawingCanvas) {
+            ctx1.drawImage(drawingCanvas, 0, 0, 640, 480);
+          }
+          sessionStorage.setItem('pyb_last_snapshot_my_painting', c1.toDataURL('image/png'));
+
+          const localVideo         = document.getElementById('localVideo');
+          const localDrawingCanvas = document.getElementById('localDrawingCanvas');
+          const c2   = document.createElement('canvas');
+          c2.width   = 640;
+          c2.height  = 480;
+          const ctx2 = c2.getContext('2d');
+
+          if (localVideo && localVideo.readyState >= 2) {
+            ctx2.drawImage(localVideo, 0, 0, 640, 480);
+          } else {
+            ctx2.fillStyle = '#111';
+            ctx2.fillRect(0, 0, 640, 480);
+          }
+          if (localDrawingCanvas) {
+            ctx2.drawImage(localDrawingCanvas, 0, 0, 640, 480);
+          }
+          sessionStorage.setItem('pyb_last_snapshot_peer_painting', c2.toDataURL('image/png'));
+        } catch (e) {
+          console.warn('[Play] Screenshot capture failed:', e);
         }
 
-        // Capture final drawing snapshot as fallback
-        const canvas   = document.getElementById('drawingCanvas');
-        const drawnData = canvas ? canvas.toDataURL() : '';
-        sessionStorage.setItem('drawnCanvasData', drawnData);
-
-        if (window.PYBMultiplayer) {
-          window.PYBMultiplayer.sendCanvasResult(drawnData);
-        }
-
-        setTimeout(() => window.location.href = 'reveal.html', 500);
+        setTimeout(() => window.location.href = 'reveal.html', 400);
       });
     });
   </script>

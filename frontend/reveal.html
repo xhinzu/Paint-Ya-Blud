@@ -9,28 +9,37 @@
   <style>
     body, html { overflow: hidden; }
 
-    .reveal-video-container {
+    .reveal-img-container {
       position: relative;
       width: 320px;
       height: 230px;
       border: 5px solid #e74c3c;
-      border-radius: 12px;
+      border-radius: 14px;
       overflow: hidden;
       box-shadow: 4px 5px 0 #111;
       background: #111;
     }
 
-    .reveal-video-container video,
-    .reveal-video-container canvas {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+    .reveal-img-container img {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
     }
 
-    .reveal-video-container canvas {
-      z-index: 10;
-      pointer-events: none;
+    .result-badge {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #e74c3c;
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.9rem;
+      padding: 0.2rem 0.8rem;
+      border-radius: 20px;
+      box-shadow: 2px 2px 0 #111;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
   </style>
 </head>
@@ -55,18 +64,18 @@
         <span>OUT</span>
       </div>
 
-      <!-- Two result frames with live webcams & AR face paint -->
+      <!-- Two captured screenshot result frames -->
       <div class="results-frame-wrap">
-        <!-- Top Frame: Peer's live face with your AR paint -->
-        <div class="reveal-video-container">
-          <video id="peerVideo" autoplay playsinline></video>
-          <canvas id="arCanvasPeer"></canvas>
+        <!-- Top Frame: Image of what YOU painted on your friend -->
+        <div class="reveal-img-container">
+          <img id="resultSnapshot1" src="assets/bg-room.png" alt="What you painted on your friend" />
+          <div class="result-badge">YOU PAINTED THIS</div>
         </div>
 
-        <!-- Bottom Frame: Your live face (PIP) -->
-        <div class="reveal-video-container" style="border-color: #27ae60;">
-          <video id="localVideo" autoplay playsinline muted></video>
-          <canvas id="arCanvasLocal"></canvas>
+        <!-- Bottom Frame: Image of what YOUR FRIEND painted on you -->
+        <div class="reveal-img-container" style="border-color: #27ae60;">
+          <img id="resultSnapshot2" src="assets/bg-room.png" alt="What was painted on you" />
+          <div class="result-badge" style="background: #27ae60;">PAINTED ON YOU</div>
         </div>
       </div>
     </div>
@@ -79,31 +88,13 @@
     </div>
   </div>
 
-  <!-- MediaPipe Face Mesh CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
   <script src="js/multiplayer.js"></script>
-  <script src="js/face-ar.js"></script>
   <script>
     let isHost   = false;
     let roomCode = '7608';
-
-    async function initWebcams() {
-      const localVideo = document.getElementById('localVideo');
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideo.srcObject = stream;
-
-        if (window.PYBMultiplayer) {
-          window.PYBMultiplayer.startVideoCall(stream);
-        }
-      } catch (err) {
-        console.warn('[Reveal] Webcams not available:', err);
-      }
-    }
 
     function handleRematch() {
       if (isHost && window.PYBMultiplayer) {
@@ -126,25 +117,20 @@
         startBtn.style.opacity = '0.6';
       }
 
-      // 1. Init Multiplayer (reveal phase)
+      // Load captured screenshot images from the final second of the timer
+      const snap1 = sessionStorage.getItem('pyb_last_snapshot_my_painting');
+      const snap2 = sessionStorage.getItem('pyb_last_snapshot_peer_painting');
+
+      const img1 = document.getElementById('resultSnapshot1');
+      const img2 = document.getElementById('resultSnapshot2');
+
+      if (img1 && snap1) img1.src = snap1;
+      if (img2 && snap2) img2.src = snap2;
+
+      // Init multiplayer in reveal phase so host can signal START for next match
       if (window.PYBMultiplayer) {
         await window.PYBMultiplayer.init(roomCode, isHost, null, 'reveal');
       }
-
-      // 2. Start webcams & live voice chat
-      await initWebcams();
-
-      // 3. Init AR face tracking on peer video frame and local video frame
-      await window.initFaceAR('arCanvasPeer', 'peerVideo', 'arCanvasLocal');
-
-      // 4. Restore separated AR face paint strokes
-      try {
-        const localS  = JSON.parse(sessionStorage.getItem('pyb_local_ar_strokes') || '[]');
-        const remoteS = JSON.parse(sessionStorage.getItem('pyb_remote_ar_strokes') || '[]');
-
-        if (window.setLocalARStrokes)  window.setLocalARStrokes(localS);
-        if (window.setRemoteARStrokes) window.setRemoteARStrokes(remoteS);
-      } catch (_) {}
     });
   </script>
 </body>
