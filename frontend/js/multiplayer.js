@@ -105,12 +105,15 @@
         console.log(`[Multiplayer] DataChannel open with ${conn.peer}`);
         const localName = localStorage.getItem('pyb_username') || 'Player';
 
-        // Notify host about player identity
-        conn.send({
-          type: 'join-request',
-          senderId: conn.peer,
-          name: conn.metadata?.name || localName
-        });
+        // Only the joiner sends a join-request to the host.
+        // (When host receives a connection, conn.peer IS the joiner's ID — host doesn't need to announce itself.)
+        if (!isHost) {
+          conn.send({
+            type: 'join-request',
+            senderId: myPeerId,   // FIX: use OWN peer ID, not conn.peer (which is the remote/host ID)
+            name: localName
+          });
+        }
       });
 
       conn.on('data', (data) => {
@@ -134,13 +137,21 @@
       switch (data.type) {
         case 'join-request':
           if (isHost) {
-            const existing = playersList.find(p => p.id === data.senderId);
+            // Use conn.peer as authoritative ID (actual PeerJS connection ID from the remote side)
+            const joinerId = conn.peer;
+            const existing = playersList.find(p => p.id === joinerId);
             if (!existing) {
-              playersList.push({ id: data.senderId, name: data.name, isHost: false });
+              playersList.push({ id: joinerId, name: data.name || 'Player', isHost: false });
             }
             this.notifyLobbyUpdate();
+
+            // Also send full lobby state directly back to the new joiner immediately
+            if (conn.open) {
+              conn.send({ type: 'lobby-update', players: playersList });
+            }
           }
           break;
+
 
         case 'lobby-update':
           playersList = data.players;
