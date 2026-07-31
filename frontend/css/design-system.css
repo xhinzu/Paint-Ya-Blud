@@ -58,6 +58,8 @@ html, body {
 .bg-friends      { background-image: url('bg_friends_reveal.png'); }
 .bg-reveal       { background-image: url('bg_friends_reveal.png'); }
 .bg-play         { background-image: url('bg_main_menu.png'); }
+.bg-edit-stick   { background-image: url('bg_edit_stick.png'); }
+
 
 /* ===================== */
 /*   CHALK BLOB PANEL    */
