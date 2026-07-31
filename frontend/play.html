@@ -300,12 +300,14 @@
       const roomCode  = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
       const isHost    = sessionStorage.getItem('isHost') === 'true';
 
-      // Fire webcam, multiplayer network connection, and AI face tracking simultaneously in parallel!
-      const webcamPromise      = initWebcams();
+      // 1. Start local webcam & mic FIRST so localStream is active before network connects
+      await initWebcams();
+
+      // 2. Init multiplayer network and AI face tracking in parallel
       const multiplayerPromise = window.PYBMultiplayer ? window.PYBMultiplayer.init(roomCode, isHost, null, 'game') : Promise.resolve();
       const arPromise          = window.initFaceAR('drawingCanvas', 'peerVideo', 'localDrawingCanvas');
 
-      await Promise.all([webcamPromise, multiplayerPromise, arPromise]);
+      await Promise.all([multiplayerPromise, arPromise]);
 
       // Hide loading overlay once ready
       const overlay = document.getElementById('arLoadingOverlay');
