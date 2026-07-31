@@ -1,10 +1,11 @@
-/* Paint Ya Blud - Self-Healing WebRTC Multiplayer Engine
+/* Paint Ya Blud - Self-Healing Cross-Household WebRTC Multiplayer Engine
  *
- * Architecture:
- * - Host binds deterministic PeerID: `pyb-host-[code]` (or `pyb-gamehost-[code]`)
- * - Joiners bind unique PeerID: `pyb-user-[code]-[random]`
- * - Joiner runs an active connection retry loop until Host acknowledges connection
- * - Self-healing: handles timing delays, tab refreshes, incognito isolation, and cross-network latency
+ * Features:
+ * - STUN + TURN Relay Servers (Metered.ca OpenRelay + Google STUN + Twilio STUN)
+ *   Enables WebRTC connections across different households, home routers, cellular NATs, and firewalls
+ * - Deterministic Host PeerIDs (`pyb-host-[code]`, `pyb-gamehost-[code]`, `pyb-revealhost-[code]`)
+ * - Joiner Active Retry Loop (retries connection every 1.5s until Host acknowledges)
+ * - Error Recovery & Draft Connection Cleanup
  */
 
 (function () {
@@ -22,12 +23,29 @@
   let retryTimer   = null;
   let isConnectedToHost = false;
 
-  const STUN_SERVERS = [
+  // Global ICE Servers (STUN + TURN for cross-household NAT/firewall traversal)
+  const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' }
+    { urls: 'stun:stun4.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ];
 
   window.PYBMultiplayer = {
@@ -49,8 +67,8 @@
       connections.clear();
       mediaCalls.clear();
 
-      const hostIdPrefix = phase === 'game' ? 'pyb-gamehost' : 'pyb-host';
-      const userIdPrefix = phase === 'game' ? 'pyb-gameuser' : 'pyb-user';
+      const hostIdPrefix = phase === 'game' ? 'pyb-gamehost' : (phase === 'reveal' ? 'pyb-revealhost' : 'pyb-host');
+      const userIdPrefix = phase === 'game' ? 'pyb-gameuser' : (phase === 'reveal' ? 'pyb-revealuser' : 'pyb-user');
 
       const targetHostId = `${hostIdPrefix}-${roomCode}`;
       const myTargetId   = isHost
@@ -65,7 +83,7 @@
         }
 
         peer = new Peer(myTargetId, {
-          config: { iceServers: STUN_SERVERS },
+          config: { iceServers: ICE_SERVERS },
           debug: 1
         });
 
@@ -117,7 +135,7 @@
 
         peer.on('error', (err) => {
           console.warn('[Multiplayer PeerJS Error]', err.type, err.message);
-          // If host ID collision occurs, destroy and retry clean
+          // If host ID collision occurs (e.g. fast page refresh), retry clean after 1s
           if (err.type === 'unavailable-id' && isHost) {
             console.warn('[Multiplayer] Host ID busy, retrying in 1s...');
             setTimeout(() => this.init(code, hostFlag, username, currentPhase), 1000);
@@ -151,6 +169,11 @@
 
       conn.on('data', (data) => {
         this.handleIncomingData(data, conn);
+      });
+
+      conn.on('error', (err) => {
+        console.warn('[Multiplayer] DataChannel connection error:', err);
+        connections.delete(conn.peer);
       });
 
       conn.on('close', () => {
