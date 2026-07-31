@@ -27,19 +27,21 @@ svg#globalFilters {
 
 .menu-buttons-stack {
   position: absolute;
-  left: 4%;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 5%;
+  top: 52%;
+  transform: translateY(-40%);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   z-index: 10;
 }
 
 .menu-buttons-stack .blob-btn {
-  font-size: 2.4rem;
-  padding: 0.4rem 2.5rem;
-  min-width: 180px;
+  font-size: 3.2rem;
+  padding: 0.7rem 3.8rem;
+  min-width: 260px;
+  border-width: 5px;
+  box-shadow: 4px 6px 0 #111;
 }
 
 .user-icon-btn {
