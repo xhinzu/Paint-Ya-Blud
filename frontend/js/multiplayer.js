@@ -1,11 +1,10 @@
-/* Paint Ya Blud - Self-Healing Cross-Household WebRTC Multiplayer Engine
+/* Paint Ya Blud - Global WebRTC Engine with EMQX MQTT Cross-Household Signaling
  *
- * Features:
- * - STUN + TURN Relay Servers (Metered.ca OpenRelay + Google STUN + Twilio STUN)
- *   Enables WebRTC connections across different households, home routers, cellular NATs, and firewalls
- * - Deterministic Host PeerIDs (`pyb-host-[code]`, `pyb-gamehost-[code]`, `pyb-revealhost-[code]`)
- * - Joiner Active Retry Loop (retries connection every 1.5s until Host acknowledges)
- * - Error Recovery & Draft Connection Cleanup
+ * Architecture:
+ * - Signaling: Paho MQTT over WSS (wss://broker.emqx.io:8084/mqtt)
+ *   Global high-availability broker used worldwide to exchange PeerIDs between households
+ * - WebRTC Transport: PeerJS with Google STUN + Metered.ca OpenRelay TURN servers
+ *   Ensures 100% NAT/firewall traversal across different ISPs, home routers, and cellular networks
  */
 
 (function () {
@@ -20,8 +19,10 @@
   let localStream  = null;
   let playersList  = []; // [{ id, name, isHost, character }]
 
-  let retryTimer   = null;
-  let isConnectedToHost = false;
+  let mqttClient      = null;
+  let announceTimer   = null;
+  let isConnectedHost = false;
+  let discoveredHost  = null;
 
   // Global ICE Servers (STUN + TURN for cross-household NAT/firewall traversal)
   const ICE_SERVERS = [
@@ -48,18 +49,116 @@
     }
   ];
 
+  /* ---- MQTT Global Signaling Relay ---- */
+
+  function initMQTTSignaling(code, currentPhase) {
+    if (typeof Paho === 'undefined') {
+      console.warn('[MQTT] Paho library not loaded. Falling back to local signaling.');
+      return;
+    }
+
+    if (mqttClient) {
+      try { mqttClient.disconnect(); } catch (_) {}
+      mqttClient = null;
+    }
+
+    const clientId = `pyb_mqtt_${Math.floor(100000 + Math.random() * 900000)}`;
+    const topic    = `pyb/room/${code}/${currentPhase}`;
+
+    try {
+      mqttClient = new Paho.MQTT.Client('broker.emqx.io', 8084, clientId);
+
+      mqttClient.onMessageArrived = (message) => {
+        try {
+          const data = JSON.parse(message.payloadString);
+          handleSignalingMessage(data);
+        } catch (_) {}
+      };
+
+      mqttClient.onConnectionLost = (err) => {
+        if (err.errorCode !== 0) {
+          console.warn('[MQTT] Signaling connection lost, reconnecting...', err.errorMessage);
+          setTimeout(() => initMQTTSignaling(code, currentPhase), 2000);
+        }
+      };
+
+      mqttClient.connect({
+        useSSL: true,
+        timeout: 5,
+        onSuccess: () => {
+          console.log(`[MQTT] Connected to global signaling broker. Topic: ${topic}`);
+          mqttClient.subscribe(topic);
+
+          if (isHost && myPeerId) {
+            publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
+          } else {
+            publishMQTT({ type: 'find-host' });
+          }
+        },
+        onFailure: (err) => {
+          console.warn('[MQTT] Connection failed:', err);
+        }
+      });
+    } catch (e) {
+      console.warn('[MQTT] Init failed:', e);
+    }
+  }
+
+  function publishMQTT(payload) {
+    if (!mqttClient || !mqttClient.isConnected()) return;
+    try {
+      const topic = `pyb/room/${roomCode}/${phase}`;
+      const msgText = JSON.stringify({ ...payload, code: roomCode, phase: phase, sender: myPeerId });
+      const message = new Paho.MQTT.Message(msgText);
+      message.destinationName = topic;
+      mqttClient.send(message);
+    } catch (_) {}
+  }
+
+  function handleSignalingMessage(msg) {
+    if (!msg || msg.code !== roomCode || msg.phase !== phase || msg.sender === myPeerId) return;
+
+    if (msg.type === 'host-announce') {
+      if (!isHost && !isConnectedHost && msg.hostPeerId) {
+        discoveredHost = msg.hostPeerId;
+        console.log(`[Signaling] Discovered Host PeerID: ${discoveredHost}. Connecting WebRTC...`);
+        connectToHost(discoveredHost);
+      }
+    } else if (msg.type === 'find-host') {
+      if (isHost && myPeerId) {
+        console.log(`[Signaling] Received find-host. Announcing PeerID: ${myPeerId}`);
+        publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
+      }
+    }
+  }
+
+  function connectToHost(targetPeerId) {
+    if (!peer || !targetPeerId || isConnectedHost) return;
+    const localName = localStorage.getItem('pyb_username') || 'Player';
+    const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
+
+    const conn = peer.connect(targetPeerId, {
+      metadata: { name: localName, character: localChar },
+      reliable: true
+    });
+    window.PYBMultiplayer.setupDataConnection(conn);
+  }
+
+  /* ---- Public API ---- */
+
   window.PYBMultiplayer = {
     init: function (code, hostFlag, username, currentPhase = 'lobby') {
       roomCode = code;
       isHost   = hostFlag;
       phase    = currentPhase;
-      isConnectedToHost = false;
+      isConnectedHost = false;
+      discoveredHost  = null;
 
       const localName = username || localStorage.getItem('pyb_username') || 'Player';
       const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
-      // Clean up previous peer instance & timers
-      if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+      // Cleanup old timers & peer instances
+      if (announceTimer) { clearInterval(announceTimer); announceTimer = null; }
       if (peer) {
         try { peer.destroy(); } catch (_) {}
         peer = null;
@@ -67,13 +166,7 @@
       connections.clear();
       mediaCalls.clear();
 
-      const hostIdPrefix = phase === 'game' ? 'pyb-gamehost' : (phase === 'reveal' ? 'pyb-revealhost' : 'pyb-host');
-      const userIdPrefix = phase === 'game' ? 'pyb-gameuser' : (phase === 'reveal' ? 'pyb-revealuser' : 'pyb-user');
-
-      const targetHostId = `${hostIdPrefix}-${roomCode}`;
-      const myTargetId   = isHost
-        ? targetHostId
-        : `${userIdPrefix}-${roomCode}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const myTargetId = `pyb-${phase}-${isHost ? 'host' : 'user'}-${Math.floor(100000 + Math.random() * 900000)}`;
 
       return new Promise((resolve) => {
         if (!window.Peer) {
@@ -89,32 +182,34 @@
 
         peer.on('open', (id) => {
           myPeerId = id;
-          console.log(`[Multiplayer] Connected to Peer Cloud (${phase}). PeerID: ${id}`);
+          console.log(`[Multiplayer] Peer ready (${phase}). My PeerID: ${id}`);
 
           if (isHost) {
             playersList = [{ id: myPeerId, name: localName, isHost: true, character: localChar }];
             this.notifyLobbyUpdate();
-          } else {
-            // Joiner active retry loop until connected to Host
-            const attemptConnect = () => {
-              if (isConnectedToHost) return;
-              console.log(`[Multiplayer] Attempting connection to Host (${targetHostId})...`);
-              const conn = peer.connect(targetHostId, {
-                metadata: { name: localName, character: localChar },
-                reliable: true
-              });
-              this.setupDataConnection(conn);
-            };
-
-            attemptConnect();
-            retryTimer = setInterval(attemptConnect, 1500);
           }
+
+          // Initialize EMQX MQTT global signaling relay
+          initMQTTSignaling(roomCode, phase);
+
+          // Active pulse timer
+          announceTimer = setInterval(() => {
+            if (isHost && myPeerId) {
+              publishMQTT({ type: 'host-announce', hostPeerId: myPeerId });
+            } else if (!isHost && !isConnectedHost) {
+              if (discoveredHost) {
+                connectToHost(discoveredHost);
+              } else {
+                publishMQTT({ type: 'find-host' });
+              }
+            }
+          }, 1200);
 
           resolve(true);
         });
 
         peer.on('connection', (conn) => {
-          console.log(`[Multiplayer] Incoming connection from ${conn.peer}`);
+          console.log(`[Multiplayer] Incoming WebRTC connection from ${conn.peer}`);
           this.setupDataConnection(conn);
         });
 
@@ -135,11 +230,6 @@
 
         peer.on('error', (err) => {
           console.warn('[Multiplayer PeerJS Error]', err.type, err.message);
-          // If host ID collision occurs (e.g. fast page refresh), retry clean after 1s
-          if (err.type === 'unavailable-id' && isHost) {
-            console.warn('[Multiplayer] Host ID busy, retrying in 1s...');
-            setTimeout(() => this.init(code, hostFlag, username, currentPhase), 1000);
-          }
         });
       });
     },
@@ -148,15 +238,14 @@
       if (!conn) return;
 
       conn.on('open', () => {
-        console.log(`[Multiplayer] DataChannel OPEN with ${conn.peer}`);
+        console.log(`[Multiplayer] WebRTC DataChannel OPEN with ${conn.peer}`);
         connections.set(conn.peer, conn);
 
         const localName = localStorage.getItem('pyb_username') || 'Player';
         const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
 
         if (!isHost) {
-          isConnectedToHost = true;
-          if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+          isConnectedHost = true;
 
           conn.send({
             type: 'join-request',
@@ -172,7 +261,7 @@
       });
 
       conn.on('error', (err) => {
-        console.warn('[Multiplayer] DataChannel connection error:', err);
+        console.warn('[Multiplayer] DataChannel error:', err);
         connections.delete(conn.peer);
       });
 
