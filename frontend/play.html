@@ -319,7 +319,13 @@
       // Countdown timer
       const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
       startCountdownTimer(durationMins * 60, 'timerDisplay', () => {
-        // Capture final drawing snapshot
+        // Save live AR strokes so reveal.html can keep rendering them on live face
+        if (window.getARStrokes) {
+          const strokes = window.getARStrokes();
+          sessionStorage.setItem('pyb_saved_ar_strokes', JSON.stringify(strokes));
+        }
+
+        // Capture final drawing snapshot as fallback
         const canvas   = document.getElementById('drawingCanvas');
         const drawnData = canvas ? canvas.toDataURL() : '';
         sessionStorage.setItem('drawnCanvasData', drawnData);

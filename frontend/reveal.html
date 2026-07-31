@@ -6,6 +6,33 @@
   <title>Paint Ya Blud - Reveal</title>
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    body, html { overflow: hidden; }
+
+    .reveal-video-container {
+      position: relative;
+      width: 320px;
+      height: 230px;
+      border: 5px solid #e74c3c;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 4px 5px 0 #111;
+      background: #111;
+    }
+
+    .reveal-video-container video,
+    .reveal-video-container canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    .reveal-video-container canvas {
+      z-index: 10;
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body>
   <svg id="globalFilters" xmlns="http://www.w3.org/2000/svg">
@@ -28,79 +55,94 @@
         <span>OUT</span>
       </div>
 
-      <!-- Two stacked result frames -->
+      <!-- Two result frames with live webcams & AR face paint -->
       <div class="results-frame-wrap">
-        <div class="result-canvas-frame">
-          <canvas id="resultCanvas1" width="300" height="220"></canvas>
+        <!-- Top Frame: Peer's live face with your AR paint -->
+        <div class="reveal-video-container">
+          <video id="peerVideo" autoplay playsinline></video>
+          <canvas id="arCanvasPeer"></canvas>
         </div>
-        <div class="result-canvas-frame">
-          <canvas id="resultCanvas2" width="300" height="220"></canvas>
+
+        <!-- Bottom Frame: Your live face (PIP) -->
+        <div class="reveal-video-container" style="border-color: #27ae60;">
+          <video id="localVideo" autoplay playsinline muted></video>
+          <canvas id="arCanvasLocal"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- START Rematch -->
+    <!-- START Rematch Button -->
     <div class="reveal-start-btn">
-      <a href="play.html" class="blob-btn btn-green" style="font-size:2rem; padding:0.4rem 2rem;">
+      <button onclick="handleRematch()" class="blob-btn btn-green" id="startRematchBtn" style="font-size:2rem; padding:0.4rem 2rem;">
         START
-      </a>
+      </button>
     </div>
   </div>
 
+  <!-- MediaPipe Face Mesh CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
   <script src="js/multiplayer.js"></script>
+  <script src="js/face-ar.js"></script>
   <script>
-    function drawCanvas(canvasId, dataUrl, fallback) {
-      const c = document.getElementById(canvasId);
-      if (!c) return;
-      const ctx = c.getContext('2d');
-      if (dataUrl) {
-        const img = new Image();
-        img.onload = () => { ctx.clearRect(0,0,300,220); ctx.drawImage(img,0,0,300,220); };
-        img.src = dataUrl;
-      } else if (fallback) fallback(ctx);
+    let isHost   = false;
+    let roomCode = '7608';
+
+    async function initWebcams() {
+      const localVideo = document.getElementById('localVideo');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.srcObject = stream;
+
+        if (window.PYBMultiplayer) {
+          window.PYBMultiplayer.startVideoCall(stream);
+        }
+      } catch (err) {
+        console.warn('[Reveal] Webcams not available:', err);
+      }
+    }
+
+    function handleRematch() {
+      if (isHost && window.PYBMultiplayer) {
+        window.PYBMultiplayer.triggerStartGame();
+      } else if (isHost) {
+        window.location.href = `play.html?code=${roomCode}`;
+      } else {
+        alert('Waiting for the host to start next round!');
+      }
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      const roomCode = sessionStorage.getItem('roomCode') || '7608';
-      const isHost   = sessionStorage.getItem('isHost') === 'true';
+      const urlParams = new URLSearchParams(window.location.search);
+      roomCode = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      isHost   = sessionStorage.getItem('isHost') === 'true';
 
-      if (window.PYBMultiplayer) {
-        await window.PYBMultiplayer.init(roomCode, isHost);
+      const startBtn = document.getElementById('startRematchBtn');
+      if (!isHost && startBtn) {
+        startBtn.innerText = 'Waiting...';
+        startBtn.style.opacity = '0.6';
       }
 
-      window.onRemoteCanvasResult = function(url) {
-        sessionStorage.setItem('remoteCanvasData', url);
-        drawCanvas('resultCanvas1', url);
-      };
+      // 1. Init Multiplayer (reveal phase)
+      if (window.PYBMultiplayer) {
+        await window.PYBMultiplayer.init(roomCode, isHost, null, 'reveal');
+      }
 
-      const remoteData = sessionStorage.getItem('remoteCanvasData');
-      const localData  = sessionStorage.getItem('drawnCanvasData');
+      // 2. Start webcams & live voice chat
+      await initWebcams();
 
-      // Canvas 1: Peer's artwork
-      drawCanvas('resultCanvas1', remoteData, (ctx) => {
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0,0,300,220);
-        ctx.fillStyle = '#f0c8a0';
-        ctx.beginPath(); ctx.arc(150,100,55,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#e74c3c';
-        ctx.beginPath(); ctx.moveTo(115,70); ctx.quadraticCurveTo(95,30,110,30); ctx.quadraticCurveTo(125,45,130,65); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(185,70); ctx.quadraticCurveTo(205,30,190,30); ctx.quadraticCurveTo(175,45,170,65); ctx.fill();
-        ctx.beginPath(); ctx.arc(150,108,11,0,Math.PI*2); ctx.fill();
-      });
+      // 3. Init AR face tracking on peer video frame
+      await window.initFaceAR('arCanvasPeer', 'peerVideo');
 
-      // Canvas 2: Your artwork
-      drawCanvas('resultCanvas2', localData, (ctx) => {
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0,0,300,220);
-        ctx.fillStyle = '#f0c8a0';
-        ctx.beginPath(); ctx.arc(150,100,55,0,Math.PI*2); ctx.fill();
-        ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 8;
-        ctx.beginPath(); ctx.arc(150,90,70,Math.PI*0.75,Math.PI*2.25); ctx.stroke();
-        ctx.fillStyle = '#e74c3c';
-        ctx.beginPath(); ctx.arc(150,110,13,0,Math.PI*2); ctx.fill();
-      });
+      // 4. Restore saved AR face paint strokes so drawing stays pinned to their face!
+      try {
+        const savedStrokes = JSON.parse(sessionStorage.getItem('pyb_saved_ar_strokes') || '[]');
+        if (savedStrokes.length > 0 && window.setARStrokes) {
+          window.setARStrokes(savedStrokes);
+        }
+      } catch (_) {}
     });
   </script>
 </body>

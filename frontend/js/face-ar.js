@@ -315,4 +315,7 @@
 
   window.clearCanvasRemote = function () { arStrokes = []; };
 
+  window.getARStrokes = function () { return arStrokes; };
+  window.setARStrokes = function (strokes) { if (Array.isArray(strokes)) arStrokes = strokes; };
+
 })();
