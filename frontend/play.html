@@ -15,42 +15,93 @@
       background-position: center;
     }
 
-    .green-crayon-border {
-      position: absolute;
-      inset: 0;
+    .main-cam-frame {
+      position: relative;
+      width: 100%;
+      height: 100%;
       border: 8px solid #27ae60;
-      border-radius: 8px;
-      pointer-events: none;
-      z-index: 5;
-      box-shadow: inset 0 0 0 3px rgba(39,174,96,0.4), 0 0 0 3px rgba(39,174,96,0.3);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 0 3px rgba(39,174,96,0.35), 4px 4px 0 #111;
     }
 
-    /* Crayon texture on border via filter */
-    .crayon-border-filter {
+    #peerVideo, #drawingCanvas {
       position: absolute;
-      inset: -4px;
-      border: 10px solid transparent;
-      border-radius: 10px;
-      background: 
-        linear-gradient(white, white) padding-box,
-        repeating-linear-gradient(
-          90deg,
-          #27ae60 0px, #2ecc71 2px, #1e8449 4px, #27ae60 6px
-        ) border-box;
-      pointer-events: none;
-      z-index: 5;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    #drawingCanvas {
+      z-index: 10;
+      cursor: crosshair;
     }
 
     .timer-display {
       position: absolute;
       top: 14px;
-      right: 200px;
+      right: 198px;
       font-family: var(--font-title);
       font-size: 3.2rem;
       color: #111;
       z-index: 200;
       letter-spacing: 2px;
       text-shadow: 2px 2px 0 rgba(255,255,255,0.9);
+      pointer-events: none;
+    }
+
+    /* Loading overlay while MediaPipe boots */
+    #arLoadingOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      border-radius: 10px;
+      transition: opacity 0.5s;
+    }
+
+    #arLoadingOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-text {
+      font-family: var(--font-title);
+      font-size: 1.8rem;
+      color: white;
+      text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+    }
+
+    .loading-spinner {
+      width: 48px; height: 48px;
+      border: 5px solid rgba(255,255,255,0.3);
+      border-top-color: #27ae60;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Face detection indicator */
+    #faceIndicator {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--font-body);
+      font-size: 1.2rem;
+      color: #27ae60;
+      background: rgba(255,255,255,0.85);
+      padding: 3px 12px;
+      border-radius: 20px;
+      border: 2px solid #111;
+      z-index: 20;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -61,10 +112,6 @@
         <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
         <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
-      <filter id="crayon-frame" x="-2%" y="-2%" width="104%" height="104%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise"/>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
-      </filter>
     </defs>
   </svg>
 
@@ -73,36 +120,48 @@
     <div class="timer-display" id="timerDisplay">01:00</div>
 
     <div class="play-layout">
-      <!-- Main camera area -->
+      <!-- Main camera area with AR canvas -->
       <div class="main-cam-area">
         <div class="main-cam-frame">
-          <video id="peerVideo" autoplay playsinline muted style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;"></video>
-          <canvas id="drawingCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;cursor:crosshair;"></canvas>
-          <!-- Green crayon frame overlay -->
-          <div class="green-crayon-border"></div>
+          <!-- AR loading overlay -->
+          <div id="arLoadingOverlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading face tracking...</div>
+          </div>
+
+          <!-- Peer webcam video -->
+          <video id="peerVideo" autoplay playsinline muted></video>
+
+          <!-- Drawing canvas (AR face paint layer) -->
+          <canvas id="drawingCanvas"></canvas>
+
+          <!-- Face detection indicator -->
+          <div id="faceIndicator">👤 Waiting for face...</div>
         </div>
       </div>
 
-      <!-- Right Sidebar -->
+      <!-- Right sidebar: PIP + toolbar -->
       <div class="play-sidebar">
-        <!-- PIP local cam -->
+        <!-- Your own webcam PIP -->
         <div class="pip-cam-box">
           <video id="localVideo" autoplay playsinline muted></video>
         </div>
 
-        <!-- Toolbar blob -->
+        <!-- Tool blob -->
         <div class="toolbar-blob">
-          <!-- Color palette -->
+          <!-- Colour swatches -->
           <div class="color-palette-row">
-            <div class="color-swatch active" style="background:#e74c3c;" onclick="selectColor('#e74c3c',this)"></div>
+            <div class="color-swatch" style="background:#e74c3c;" onclick="selectColor('#e74c3c',this)"></div>
             <div class="color-swatch" style="background:#e67e22;" onclick="selectColor('#e67e22',this)"></div>
             <div class="color-swatch" style="background:#f1c40f;" onclick="selectColor('#f1c40f',this)"></div>
-            <div class="color-swatch" style="background:#27ae60;" onclick="selectColor('#27ae60',this)"></div>
+            <div class="color-swatch active" style="background:#27ae60;" onclick="selectColor('#27ae60',this)"></div>
             <div class="color-swatch" style="background:#2980b9;" onclick="selectColor('#2980b9',this)"></div>
+            <div class="color-swatch" style="background:#8e44ad;" onclick="selectColor('#8e44ad',this)"></div>
+            <div class="color-swatch" style="background:#ffffff; border-color:#888;" onclick="selectColor('#ffffff',this)"></div>
             <div class="color-swatch" style="background:#111111;" onclick="selectColor('#111111',this)"></div>
           </div>
 
-          <!-- Crayon tool -->
+          <!-- Tools -->
           <button class="tool-btn active" id="toolCrayon" onclick="selectTool('crayon')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
               <path d="M12 19l7-7 3 3-7 7-3-3z"/>
@@ -111,7 +170,6 @@
             crayon
           </button>
 
-          <!-- Pen tool -->
           <button class="tool-btn" id="toolPen" onclick="selectTool('pen')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
               <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
@@ -119,7 +177,6 @@
             Pen
           </button>
 
-          <!-- Rubber tool -->
           <button class="tool-btn" id="toolRubber" onclick="selectTool('rubber')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
               <rect x="2" y="14" width="10" height="8" rx="2"/>
@@ -128,7 +185,6 @@
             Rubber
           </button>
 
-          <!-- Pencil tool -->
           <button class="tool-btn" id="toolPencil" onclick="selectTool('pencil')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2.5">
               <line x1="18" y1="2" x2="22" y2="6"/>
@@ -141,29 +197,38 @@
     </div>
   </div>
 
+  <!-- MediaPipe Face Mesh (loads model files from CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/blob-panel.js"></script>
   <script src="js/multiplayer.js"></script>
-  <script src="js/crayon-brush.js"></script>
+  <script src="js/face-ar.js"></script>
   <script src="js/timer.js"></script>
   <script>
     async function initWebcams() {
-      const localVideo  = document.getElementById('localVideo');
-      const peerVideo   = document.getElementById('peerVideo');
+      const localVideo = document.getElementById('localVideo');
+      const peerVideo  = document.getElementById('peerVideo');
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localVideo.srcObject = stream;
-        if (window.PYBMultiplayer) window.PYBMultiplayer.startVideoCall(stream);
+
+        if (window.PYBMultiplayer) {
+          window.PYBMultiplayer.startVideoCall(stream);
+        }
       } catch (err) {
-        console.warn('Webcam not available, using mock feed:', err);
+        console.warn('[Play] Webcam not available, using mock feed:', err);
         createMockFeed(localVideo, 'You');
         createMockFeed(peerVideo, 'Peer');
+        if (window.PYBMultiplayer) {
+          window.PYBMultiplayer.startVideoCall(peerVideo.srcObject);
+        }
       }
     }
 
     function createMockFeed(videoElem, label) {
-      const c = document.createElement('canvas');
+      const c   = document.createElement('canvas');
       c.width = 640; c.height = 480;
       const ctx = c.getContext('2d');
       let f = 0;
@@ -171,15 +236,23 @@
         f++;
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, 640, 480);
+        // Head silhouette
         ctx.fillStyle = '#e8d5b7';
         ctx.beginPath();
-        ctx.arc(320, 200 + Math.sin(f * 0.04) * 6, 105, 0, Math.PI * 2);
+        ctx.arc(320, 190 + Math.sin(f * 0.04) * 6, 110, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#111';
         ctx.lineWidth = 4;
         ctx.stroke();
-        ctx.fillStyle = '#111';
-        ctx.font = 'bold 28px "Permanent Marker", cursive';
+        // Rough face features
+        ctx.fillStyle = '#333';
+        ctx.beginPath(); ctx.arc(285, 175, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(355, 175, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(320, 215, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(320, 240, 18, 0, Math.PI); ctx.stroke();
+        // Label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 26px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(label, 320, 430);
         requestAnimationFrame(animate);
@@ -189,23 +262,40 @@
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      const urlParams  = new URLSearchParams(window.location.search);
-      const roomCode   = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
-      const isHost     = sessionStorage.getItem('isHost') === 'true';
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomCode  = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
+      const isHost    = sessionStorage.getItem('isHost') === 'true';
 
+      // Init multiplayer
       if (window.PYBMultiplayer) {
         await window.PYBMultiplayer.init(roomCode, isHost);
       }
 
+      // Start webcams
       await initWebcams();
-      initCrayonCanvas('drawingCanvas');
 
+      // Init AR face painting (loads MediaPipe, starts render loop)
+      await window.initFaceAR('drawingCanvas', 'peerVideo');
+
+      // Hide loading overlay once AR is ready
+      const overlay = document.getElementById('arLoadingOverlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        setTimeout(() => overlay.remove(), 600);
+      }
+
+      // Countdown timer
       const durationMins = parseInt(sessionStorage.getItem('durationMins') || '1', 10);
       startCountdownTimer(durationMins * 60, 'timerDisplay', () => {
-        const canvas = document.getElementById('drawingCanvas');
+        // Capture final drawing snapshot
+        const canvas   = document.getElementById('drawingCanvas');
         const drawnData = canvas ? canvas.toDataURL() : '';
         sessionStorage.setItem('drawnCanvasData', drawnData);
-        if (window.PYBMultiplayer) window.PYBMultiplayer.sendCanvasResult(drawnData);
+
+        if (window.PYBMultiplayer) {
+          window.PYBMultiplayer.sendCanvasResult(drawnData);
+        }
+
         setTimeout(() => window.location.href = 'reveal.html', 500);
       });
     });
