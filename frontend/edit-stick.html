@@ -179,7 +179,7 @@
       {
         key:     'face',
         label:   'Mood',
-        options: ['Happy', 'Wink', 'Grumpy', 'Surprised', 'Cool'],
+        options: ['Happy','Angry','Confused','Shocked','Flirty','Tired','Cool','Smug','Crying','Nervous','Scared','Laughing'],
         idx:     0
       },
       {
@@ -304,86 +304,8 @@
       /* --- Hat (drawn on top of head) --- */
       drawHat(ctx, cx, headY, headR, hat, false /* front */);
 
-      /* --- Eyes --- */
-      const eyeX = headR * 0.34;
-      const eyeY = headR * 0.14;
-      ctx.fillStyle = '#111';
-
-      if (mood === 'Cool') {
-        // Sunglasses
-        ctx.fillStyle = '#222';
-        ctx.fillRect(cx - eyeX - 16, headY - eyeY - 10, 30, 18);
-        ctx.fillRect(cx + eyeX - 14, headY - eyeY - 10, 30, 18);
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(cx - eyeX + 14, headY - eyeY + 1);
-        ctx.lineTo(cx + eyeX - 14, headY - eyeY + 1);
-        ctx.stroke();
-        ctx.lineWidth = 6;
-      } else if (mood === 'Wink') {
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(cx - eyeX - 9, headY - eyeY);
-        ctx.lineTo(cx - eyeX + 9, headY - eyeY);
-        ctx.stroke();
-        ctx.lineWidth = 6;
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(cx + eyeX, headY - eyeY, 7, 0, Math.PI * 2);
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        ctx.arc(cx - eyeX, headY - eyeY, 7, 0, Math.PI * 2);
-        ctx.arc(cx + eyeX, headY - eyeY, 7, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      /* --- Eyebrows --- */
-      ctx.lineWidth = 4.5;
-      ctx.strokeStyle = '#111';
-      if (mood === 'Grumpy') {
-        ctx.beginPath();
-        ctx.moveTo(cx - eyeX - 16, headY - eyeY - 20);
-        ctx.lineTo(cx - eyeX + 12, headY - eyeY - 8);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx + eyeX + 16, headY - eyeY - 20);
-        ctx.lineTo(cx + eyeX - 12, headY - eyeY - 8);
-        ctx.stroke();
-      } else if (mood !== 'Cool') {
-        ctx.beginPath();
-        ctx.arc(cx - eyeX, headY - eyeY - 18, 14, Math.PI * 1.1, Math.PI * 1.9);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(cx + eyeX, headY - eyeY - 18, 14, Math.PI * 1.1, Math.PI * 1.9);
-        ctx.stroke();
-      }
-
-      /* --- Nose dot --- */
-      ctx.lineWidth = 6;
-      ctx.fillStyle = '#222';
-      ctx.beginPath();
-      ctx.arc(cx, headY + headR * 0.16, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      /* --- Mouth --- */
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = '#111';
-      if (mood === 'Happy' || mood === 'Wink' || mood === 'Cool') {
-        ctx.beginPath();
-        ctx.arc(cx, headY + 14, headR * 0.43, Math.PI * 0.14, Math.PI * 0.86);
-        ctx.stroke();
-      } else if (mood === 'Grumpy') {
-        ctx.beginPath();
-        ctx.arc(cx, headY + 52, headR * 0.43, Math.PI * 1.14, Math.PI * 1.86);
-        ctx.stroke();
-      } else {
-        // Surprised
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.ellipse(cx, headY + 22, 11, 16, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      /* --- Eyes, Brows, Nose, Mouth --- */
+      drawFace(ctx, cx, headY, headR, mood);
 
       /* --- Body torso --- */
       ctx.lineWidth = 6;
@@ -420,10 +342,310 @@
     }
 
     /* ==================== */
+    /*   FACE / MOOD DRAW   */
+    /* ==================== */
+
+    function drawFace(ctx, cx, headY, headR, mood) {
+      const ex = headR * 0.33; // eye X offset from center
+      const ey = headR * 0.14; // eye Y offset up from center
+      const browY = headY - ey - 22; // base brow Y
+
+      ctx.strokeStyle = '#111';
+      ctx.fillStyle   = '#111';
+
+      // ---- Helper shortcuts ----
+      function dot(x, y, r) {
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      function line(x1,y1,x2,y2, w) {
+        ctx.lineWidth = w || 4.5;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+        ctx.lineWidth = 6;
+      }
+      function arc(x,y,r,s,e,ccw) {
+        ctx.beginPath(); ctx.arc(x,y,r,s,e,ccw); ctx.stroke();
+      }
+
+      ctx.lineWidth = 4.5;
+
+      switch(mood) {
+
+        case 'Happy': // smile, curved brows, dot eyes
+          dot(cx - ex, headY - ey, 7);
+          dot(cx + ex, headY - ey, 7);
+          arc(cx - ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          arc(cx + ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          dot(cx, headY + headR*0.16, 4); // nose
+          ctx.lineWidth = 5;
+          arc(cx, headY + 14, headR*0.42, Math.PI*0.15, Math.PI*0.85);
+          break;
+
+        case 'Angry': // thick furrowed brows pointing in, frown, small eyes
+          dot(cx - ex, headY - ey, 7);
+          dot(cx + ex, headY - ey, 7);
+          // Angry brows: diagonal inward-down
+          line(cx - ex - 18, browY - 8,  cx - ex + 10, browY + 8,  5);
+          line(cx + ex + 18, browY - 8,  cx + ex - 10, browY + 8,  5);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Frown
+          arc(cx, headY + 55, headR*0.42, Math.PI*1.15, Math.PI*1.85);
+          // Wrinkle between brows
+          line(cx - 5, browY + 5, cx + 5, browY - 2, 3.5);
+          break;
+
+        case 'Confused': // tilted brows, wavy mouth, one raised brow
+          dot(cx - ex, headY - ey, 7);
+          dot(cx + ex, headY - ey, 7);
+          // Left brow raised, right flat
+          ctx.lineWidth = 4.5;
+          arc(cx - ex, browY - 6, 13, Math.PI*1.1, Math.PI*1.9);
+          line(cx + ex - 14, browY + 2, cx + ex + 14, browY + 2, 4.5);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Wavy / squiggly mouth
+          ctx.beginPath();
+          ctx.moveTo(cx - 22, headY + 20);
+          ctx.bezierCurveTo(cx - 10, headY + 10, cx + 10, headY + 30, cx + 22, headY + 20);
+          ctx.stroke();
+          break;
+
+        case 'Shocked': // wide circle eyes, O mouth
+          ctx.lineWidth = 4;
+          arc(cx - ex, headY - ey, 12, 0, Math.PI*2);
+          arc(cx + ex, headY - ey, 12, 0, Math.PI*2);
+          dot(cx - ex, headY - ey, 4);
+          dot(cx + ex, headY - ey, 4);
+          arc(cx - ex, browY + 2, 11, Math.PI*1.1, Math.PI*1.9);
+          arc(cx + ex, browY + 2, 11, Math.PI*1.1, Math.PI*1.9);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.fillStyle = '#111';
+          ctx.beginPath(); ctx.ellipse(cx, headY + 24, 11, 16, 0, 0, Math.PI*2); ctx.fill();
+          break;
+
+        case 'Flirty': // heavy-lashed half-closed eyes, tongue out
+          // Eyes: half-closed with lashes
+          ctx.lineWidth = 4;
+          arc(cx - ex, headY - ey + 2, 12, Math.PI*1.0, Math.PI*2.0); // bottom half
+          arc(cx + ex, headY - ey + 2, 12, Math.PI*1.0, Math.PI*2.0);
+          // Lashes top
+          for (let i = -2; i <= 2; i++) {
+            const lx = cx - ex + i * 5;
+            line(lx, headY - ey - 10, lx + (i < 0 ? -2 : i > 0 ? 2 : 0), headY - ey - 18, 2.5);
+          }
+          for (let i = -2; i <= 2; i++) {
+            const lx = cx + ex + i * 5;
+            line(lx, headY - ey - 10, lx + (i < 0 ? -2 : i > 0 ? 2 : 0), headY - ey - 18, 2.5);
+          }
+          // Curved lash line
+          ctx.lineWidth = 4;
+          arc(cx - ex, headY - ey - 10, 12, Math.PI, Math.PI*2);
+          arc(cx + ex, headY - ey - 10, 12, Math.PI, Math.PI*2);
+          // Brow
+          arc(cx - ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          arc(cx + ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          dot(cx, headY + headR*0.16, 4);
+          // Smile + tongue
+          ctx.lineWidth = 5;
+          arc(cx, headY + 10, headR*0.42, Math.PI*0.1, Math.PI*0.9);
+          ctx.fillStyle = '#e74c3c';
+          ctx.beginPath(); ctx.ellipse(cx, headY + 30, 9, 13, 0, 0, Math.PI); ctx.fill();
+          ctx.lineWidth = 3;
+          arc(cx, headY + 30, 9, 0, Math.PI);
+          break;
+
+        case 'Tired': // droopy half-closed eyes, slight frown
+          // Eyes: half closed (just upper half arc, drooping)
+          ctx.lineWidth = 4;
+          arc(cx - ex, headY - ey, 12, Math.PI*1.15, Math.PI*1.85);
+          arc(cx + ex, headY - ey, 12, Math.PI*1.15, Math.PI*1.85);
+          // Droopy lower lid
+          arc(cx - ex, headY - ey + 4, 12, Math.PI*0.1, Math.PI*0.9);
+          arc(cx + ex, headY - ey + 4, 12, Math.PI*0.1, Math.PI*0.9);
+          // Flat/droopy brows
+          ctx.lineWidth = 4.5;
+          line(cx - ex - 14, browY + 4, cx - ex + 14, browY + 8, 4.5);
+          line(cx + ex - 14, browY + 4, cx + ex + 14, browY + 8, 4.5);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Small neutral/slight frown
+          ctx.beginPath();
+          ctx.moveTo(cx - 18, headY + 25);
+          ctx.quadraticCurveTo(cx, headY + 32, cx + 18, headY + 25);
+          ctx.stroke();
+          break;
+
+        case 'Cool': // sunglasses, smile
+          // Shades
+          ctx.fillStyle = '#111';
+          ctx.beginPath();
+          ctx.roundRect(cx - ex - 16, headY - ey - 12, 30, 20, 4);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.roundRect(cx + ex - 14, headY - ey - 12, 30, 20, 4);
+          ctx.fill();
+          ctx.lineWidth = 3;
+          line(cx - ex + 14, headY - ey, cx + ex - 14, headY - ey, 3);
+          // Temples
+          line(cx - ex - 16, headY - ey, cx - ex - 30, headY - ey - 4, 3);
+          line(cx + ex + 16, headY - ey, cx + ex + 30, headY - ey - 4, 3);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          arc(cx, headY + 16, headR*0.36, Math.PI*0.15, Math.PI*0.85);
+          break;
+
+        case 'Smug': // one raised brow, half-smile/grin showing teeth
+          dot(cx - ex, headY - ey, 7);
+          dot(cx + ex, headY - ey, 7);
+          // Left brow up (smug), right lower
+          ctx.lineWidth = 4.5;
+          arc(cx - ex, browY - 8, 13, Math.PI*1.1, Math.PI*1.9);
+          line(cx + ex - 14, browY + 2, cx + ex + 14, browY - 4, 4.5);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Grin showing teeth
+          ctx.beginPath();
+          ctx.moveTo(cx - 26, headY + 14);
+          ctx.quadraticCurveTo(cx, headY + 36, cx + 26, headY + 14);
+          ctx.stroke();
+          // Teeth
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.roundRect(cx - 22, headY + 14, 44, 14, [0,0,4,4]);
+          ctx.fill();
+          ctx.strokeStyle = '#111'; ctx.lineWidth = 2;
+          ctx.strokeRect(cx - 22, headY + 14, 44, 14);
+          // Tooth dividers
+          line(cx - 8, headY + 14, cx - 8, headY + 28, 2);
+          line(cx + 8, headY + 14, cx + 8, headY + 28, 2);
+          break;
+
+        case 'Crying': // tear, sad brows, frown
+          dot(cx - ex, headY - ey, 7);
+          dot(cx + ex, headY - ey, 7);
+          // Sad brows: outer ends drop
+          ctx.lineWidth = 4.5;
+          line(cx - ex - 14, browY + 5, cx - ex + 10, browY - 5, 4.5);
+          line(cx + ex + 14, browY + 5, cx + ex - 10, browY - 5, 4.5);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          arc(cx, headY + 55, headR*0.4, Math.PI*1.15, Math.PI*1.85);
+          // Teardrop left eye
+          ctx.fillStyle = '#5dade2';
+          ctx.beginPath();
+          ctx.moveTo(cx - ex, headY - ey + 9);
+          ctx.bezierCurveTo(cx - ex - 7, headY - ey + 20, cx - ex + 7, headY - ey + 20, cx - ex, headY - ey + 9);
+          ctx.arc(cx - ex, headY - ey + 20, 7, 0, Math.PI*2);
+          ctx.fill();
+          break;
+
+        case 'Nervous': // wide eyes, wavy teeth-clench mouth
+          ctx.lineWidth = 4;
+          arc(cx - ex, headY - ey, 13, 0, Math.PI*2);
+          arc(cx + ex, headY - ey, 13, 0, Math.PI*2);
+          dot(cx - ex, headY - ey, 4);
+          dot(cx + ex, headY - ey, 4);
+          // Slightly raised brows
+          ctx.lineWidth = 4.5;
+          arc(cx - ex, browY - 4, 13, Math.PI*1.1, Math.PI*1.9);
+          arc(cx + ex, browY - 4, 13, Math.PI*1.1, Math.PI*1.9);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Wavy clenched mouth
+          ctx.beginPath();
+          ctx.moveTo(cx - 22, headY + 20);
+          for (let i = 0; i < 4; i++) {
+            ctx.quadraticCurveTo(
+              cx - 22 + (i + 0.5) * 11, headY + (i % 2 === 0 ? 12 : 28),
+              cx - 22 + (i + 1) * 11, headY + 20
+            );
+          }
+          ctx.stroke();
+          break;
+
+        case 'Scared': // spiral-ish wide eyes, sweat drop, zigzag mouth
+          // Eyes with spirals (use concentric arcs)
+          ctx.lineWidth = 3.5;
+          arc(cx - ex, headY - ey, 13, 0, Math.PI*2);
+          arc(cx - ex, headY - ey, 7,  0, Math.PI*2);
+          dot(cx - ex, headY - ey, 3);
+          arc(cx + ex, headY - ey, 13, 0, Math.PI*2);
+          arc(cx + ex, headY - ey, 7,  0, Math.PI*2);
+          dot(cx + ex, headY - ey, 3);
+          ctx.lineWidth = 4.5;
+          arc(cx - ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          arc(cx + ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Zigzag mouth
+          ctx.beginPath();
+          ctx.moveTo(cx - 22, headY + 14);
+          const zigPts = [cx-11,headY+26, cx,headY+14, cx+11,headY+26, cx+22,headY+14];
+          for (let i = 0; i < zigPts.length; i+=2) ctx.lineTo(zigPts[i], zigPts[i+1]);
+          ctx.stroke();
+          // Sweat drop top right
+          ctx.fillStyle = '#5dade2';
+          ctx.beginPath();
+          ctx.moveTo(cx + ex + 18, headY - ey - 22);
+          ctx.bezierCurveTo(cx + ex + 10, headY - ey - 8, cx + ex + 28, headY - ey - 8, cx + ex + 18, headY - ey - 22);
+          ctx.arc(cx + ex + 18, headY - ey - 8, 6, 0, Math.PI*2);
+          ctx.fill();
+          break;
+
+        case 'Laughing': // squinting eyes, cheek lines, big open-mouth laugh
+          ctx.lineWidth = 5;
+          // Squinting — just arcs curving upward
+          arc(cx - ex, headY - ey + 2, 13, Math.PI*1.05, Math.PI*1.95);
+          arc(cx + ex, headY - ey + 2, 13, Math.PI*1.05, Math.PI*1.95);
+          // Cheek crinkle lines
+          ctx.lineWidth = 3;
+          line(cx - ex - 20, headY - ey + 10, cx - ex - 12, headY - ey + 6, 3);
+          line(cx - ex - 20, headY - ey + 17, cx - ex - 12, headY - ey + 13, 3);
+          line(cx + ex + 20, headY - ey + 10, cx + ex + 12, headY - ey + 6, 3);
+          line(cx + ex + 20, headY - ey + 17, cx + ex + 12, headY - ey + 13, 3);
+          ctx.lineWidth = 4.5;
+          arc(cx - ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          arc(cx + ex, browY, 13, Math.PI*1.1, Math.PI*1.9);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          // Big open mouth
+          ctx.beginPath();
+          ctx.moveTo(cx - 28, headY + 10);
+          ctx.quadraticCurveTo(cx, headY + 50, cx + 28, headY + 10);
+          ctx.stroke();
+          // Inside mouth dark
+          ctx.fillStyle = '#222';
+          ctx.beginPath();
+          ctx.moveTo(cx - 26, headY + 12);
+          ctx.quadraticCurveTo(cx, headY + 48, cx + 26, headY + 12);
+          ctx.lineTo(cx + 26, headY + 12);
+          ctx.fill();
+          // Teeth
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.roundRect(cx - 22, headY + 10, 44, 14, [4,4,0,0]);
+          ctx.fill();
+          ctx.lineWidth = 2;
+          line(cx - 8, headY + 10, cx - 8, headY + 24, 2);
+          line(cx + 8, headY + 10, ctx.lineWidth = 2, headY + 24, 2);
+          line(cx + 8, headY + 10, cx + 8, headY + 24, 2);
+          break;
+
+        default:
+          dot(cx - ex, headY - ey, 7);
+          dot(cx + ex, headY - ey, 7);
+          dot(cx, headY + headR*0.16, 4);
+          ctx.lineWidth = 5;
+          arc(cx, headY + 14, headR*0.42, Math.PI*0.15, Math.PI*0.85);
+      }
+    }
+
+    /* ==================== */
     /*    HAT DRAWING       */
     /* ==================== */
 
     function drawHat(ctx, cx, headY, headR, hat, behind) {
+
       if (hat === 'None') return;
 
       ctx.strokeStyle = '#111';
