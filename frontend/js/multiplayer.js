@@ -247,6 +247,9 @@
 
         case 'lobby-update':
           playersList = data.players;
+          if (data && data.durationMins) {
+            sessionStorage.setItem('durationMins', data.durationMins);
+          }
           if (window.updateLobbyUI) {
             window.updateLobbyUI(playersList);
           }
@@ -282,12 +285,14 @@
     },
 
     notifyLobbyUpdate: function () {
+      const durationMins = sessionStorage.getItem('durationMins') || '1';
       if (window.updateLobbyUI) {
         window.updateLobbyUI(playersList);
       }
       this.broadcast({
         type: 'lobby-update',
-        players: playersList
+        players: playersList,
+        durationMins: durationMins
       });
     },
 
@@ -301,7 +306,11 @@
         startTime: startTime,
         durationMins: durationMins
       });
-      window.location.href = `play.html?code=${roomCode}`;
+
+      // 150ms buffer to allow WebRTC packet to flush before page unload
+      setTimeout(() => {
+        window.location.href = `play.html?code=${roomCode}`;
+      }, 150);
     },
 
     sendStrokePoint: function (strokeData) {
