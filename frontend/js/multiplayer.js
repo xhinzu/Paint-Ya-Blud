@@ -29,12 +29,20 @@
 
   window.PYBMultiplayer = {
     // 1. Initialize Peer Connection
-    init: function (code, hostFlag, username) {
+    init: function (code, hostFlag, username, phase = 'lobby') {
       roomCode = code;
       isHost = hostFlag;
       const localName = username || localStorage.getItem('pyb_username') || 'Player';
 
-      const targetId = isHost ? `pyb-room-${roomCode}` : `pyb-user-${Math.floor(1000 + Math.random() * 9000)}`;
+      // Clean up previous peer if existing
+      if (peer) {
+        try { peer.destroy(); } catch (_) {}
+        peer = null;
+      }
+
+      const prefix = phase === 'game' ? 'pyb-game' : 'pyb-room';
+      const targetId = isHost ? `${prefix}-${roomCode}` : `${prefix}-user-${Math.floor(10000 + Math.random() * 90000)}`;
+      const hostTargetId = `${prefix}-${roomCode}`;
 
       return new Promise((resolve, reject) => {
         if (!window.Peer) {
@@ -50,16 +58,16 @@
 
         peer.on('open', (id) => {
           myPeerId = id;
-          console.log(`[Multiplayer] Connected to Peer Cloud. PeerID: ${id}`);
+          console.log(`[Multiplayer] Connected (${phase} phase). PeerID: ${id}`);
 
           if (isHost) {
             const localChar = JSON.parse(localStorage.getItem('pyb_character') || '{}');
             playersList = [{ id: myPeerId, name: localName, isHost: true, character: localChar }];
             this.notifyLobbyUpdate();
           } else {
-            // Join host room
-            const hostPeerId = `pyb-room-${roomCode}`;
-            const conn = peer.connect(hostPeerId, {
+            // Connect to host room
+            console.log(`[Multiplayer] Connecting to host: ${hostTargetId}`);
+            const conn = peer.connect(hostTargetId, {
               metadata: { name: localName }
             });
             this.setupDataConnection(conn);

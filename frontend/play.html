@@ -266,9 +266,9 @@
       const roomCode  = urlParams.get('code') || sessionStorage.getItem('roomCode') || '7608';
       const isHost    = sessionStorage.getItem('isHost') === 'true';
 
-      // Init multiplayer
+      // Init multiplayer (game phase)
       if (window.PYBMultiplayer) {
-        await window.PYBMultiplayer.init(roomCode, isHost);
+        await window.PYBMultiplayer.init(roomCode, isHost, null, 'game');
       }
 
       // Start webcams
