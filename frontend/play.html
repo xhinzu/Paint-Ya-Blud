@@ -129,8 +129,8 @@
             <div class="loading-text">Loading face tracking...</div>
           </div>
 
-          <!-- Peer webcam video -->
-          <video id="peerVideo" autoplay playsinline muted></video>
+          <!-- Peer webcam video (unmuted so you hear their voice chat) -->
+          <video id="peerVideo" autoplay playsinline></video>
 
           <!-- Drawing canvas (AR face paint layer) -->
           <canvas id="drawingCanvas"></canvas>
@@ -192,6 +192,17 @@
             </svg>
             Pencil
           </button>
+
+          <!-- Mic Toggle Button -->
+          <button class="tool-btn" id="micToggleBtn" onclick="toggleMic()" style="margin-top: 4px; border-color: #27ae60;">
+            <svg id="micIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#27ae60" stroke-width="2.5">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+            <span id="micLabel" style="color: #27ae60;">Mic On</span>
+          </button>
         </div>
       </div>
     </div>
@@ -206,6 +217,27 @@
   <script src="js/face-ar.js"></script>
   <script src="js/timer.js"></script>
   <script>
+    let isMicOn = true;
+
+    function toggleMic() {
+      const localVideo = document.getElementById('localVideo');
+      if (localVideo && localVideo.srcObject) {
+        const audioTracks = localVideo.srcObject.getAudioTracks();
+        if (audioTracks.length > 0) {
+          isMicOn = !isMicOn;
+          audioTracks[0].enabled = isMicOn;
+          const label = document.getElementById('micLabel');
+          const icon  = document.getElementById('micIcon');
+          const btn   = document.getElementById('micToggleBtn');
+
+          if (label) label.textContent = isMicOn ? 'Mic On' : 'Muted';
+          if (label) label.style.color = isMicOn ? '#27ae60' : '#e74c3c';
+          if (icon)  icon.setAttribute('stroke', isMicOn ? '#27ae60' : '#e74c3c');
+          if (btn)   btn.style.borderColor = isMicOn ? '#27ae60' : '#e74c3c';
+        }
+      }
+    }
+
     async function initWebcams() {
       const localVideo = document.getElementById('localVideo');
       const peerVideo  = document.getElementById('peerVideo');
